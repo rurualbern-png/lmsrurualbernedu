@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RuruAlbernEdu LMS</title>
+    <title>RuruAlbernEdu LMS Platform</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -53,7 +53,7 @@
         // State Aplikasi Global
         const state = {
             user: null, 
-            currentView: 'login', // login, supabase_setup, dashboard, course_siswa, session_siswa, course_guru, form_sesi, form_topik, admin_users
+            currentView: 'login', // login, dashboard, course_siswa, session_siswa, course_guru, form_sesi, form_topik, admin_users, supabase_setup
             activeCourseId: null,
             activeSessionId: null,
             quizState: { currentIndex: 0, answers: {}, questions: [], showResultScreen: false, lastScore: 0 }
@@ -106,9 +106,9 @@
                 if (state.user.role === 'Admin') {
                     if (state.currentView === 'dashboard') viewContainer.innerHTML += getAdminDashboardHTML();
                     else if (state.currentView === 'admin_users') viewContainer.innerHTML += getAdminManageUsersHTML();
-                    else if (state.currentView === 'form_topik') viewContainer.innerHTML += getTeacherFormCourseHTML();
                     else if (state.currentView === 'course_guru') viewContainer.innerHTML += getTeacherCourseHTML();
                     else if (state.currentView === 'form_sesi') viewContainer.innerHTML += getTeacherFormSessionHTML();
+                    else if (state.currentView === 'form_topik') viewContainer.innerHTML += getTeacherFormCourseHTML();
                 } else if (state.user.role === 'Guru') {
                     if (state.currentView === 'dashboard') viewContainer.innerHTML += getTeacherDashboardHTML();
                     else if (state.currentView === 'course_guru') viewContainer.innerHTML += getTeacherCourseHTML();
@@ -220,16 +220,14 @@
                             </div>
                             
                             <div class="bg-slate-100 p-4 rounded-lg border border-slate-200 mt-4">
-                                <h3 class="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"><i class="ph-fill ph-info text-blue-500"></i> Skema Database (Jalankan di SQL Editor Supabase Anda)</h3>
+                                <h3 class="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2"><i class="ph-fill ph-info text-blue-500"></i> Skema SQL Database (Jalankan di Supabase SQL Editor / Run without RLS)</h3>
                                 <textarea readonly class="w-full h-40 text-xs font-mono bg-slate-800 text-green-400 p-3 rounded custom-scrollbar outline-none focus:ring-2 focus:ring-green-500">
--- 1. Buat Tabel
 CREATE TABLE users (user_id bigint primary key, nama_lengkap text, email text, password text, role text);
 CREATE TABLE courses (course_id bigint primary key, guru_id bigint, judul_kursus text, deskripsi_singkat text);
 CREATE TABLE sessions (session_id bigint primary key, course_id bigint, urutan_sesi integer, deskripsi_modul text, tujuan_belajar text, link_video text, bahan_diskusi text, kkm_kuis integer);
 CREATE TABLE quizzes (quiz_id bigint primary key, session_id bigint, pertanyaan text, pilihan_ganda jsonb, jawaban_benar integer);
 CREATE TABLE user_progress (progress_id bigint primary key, user_id bigint, session_id bigint, skor_kuis integer, status_sesi text);
 
--- 2. Nonaktifkan RLS (Disable Row Level Security agar data antar perangkat bisa disinkronkan)
 ALTER TABLE users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE courses DISABLE ROW LEVEL SECURITY;
 ALTER TABLE sessions DISABLE ROW LEVEL SECURITY;
@@ -258,9 +256,7 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
             try {
                 localStorage.setItem('SUPABASE_URL', url);
                 localStorage.setItem('SUPABASE_ANON_KEY', key);
-                supabaseUrl = url;
-                supabaseKey = key;
-                showToast('Konfigurasi Supabase berhasil disimpan!', 'success');
+                showToast('Konfigurasi Supabase berhasil disimpan di LocalStorage!', 'success');
                 await bootApp();
             } catch (err) {
                 showToast('Gagal menyimpan ke LocalStorage.', 'error');
@@ -281,27 +277,21 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                     await fetchDataFromSupabase();
                     state.currentView = 'login';
                 } catch (error) {
-                    showToast('Gagal menghubungkan ke Supabase. Periksa URL dan Key Anda.', 'error');
+                    showToast('Gagal menghubungkan ke Supabase. Periksa URL & Key Anda.', 'error');
                     state.currentView = 'supabase_setup';
                 }
             } else if (forceBypass && (!supabaseUrl || !supabaseKey)) {
                 if(usersTable.length === 0) usersTable.push({ user_id: 1, nama_lengkap: 'Super Admin (Lokal)', email: 'admin@app.com', password: '123', role: 'Admin' });
                 state.currentView = 'login';
+            } else if (!supabaseUrl || !supabaseKey) {
+                state.currentView = 'supabase_setup';
             } else {
-                state.currentView = supabaseUrl ? 'login' : 'supabase_setup';
+                state.currentView = 'login';
             }
             render();
         }
 
         async function fetchDataFromSupabase() {
-            if (!supabaseClient && supabaseUrl && supabaseKey) {
-                supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
-            }
-            if (!supabaseClient) {
-                showToast('Koneksi Supabase belum dikonfigurasi.', 'warning');
-                return;
-            }
-
             showToast('Menyinkronkan data dari cloud...', 'info');
             try {
                 const [u, c, s, q, p] = await Promise.all([
@@ -324,25 +314,28 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                     usersTable.push(defaultAdmin);
                 }
 
-                nextUserId = usersTable.length > 0 ? Math.max(0, ...usersTable.map(x => x.user_id)) + 1 : 1;
-                nextCourseId = coursesTable.length > 0 ? Math.max(0, ...coursesTable.map(x => x.course_id)) + 1 : 101;
-                nextSessionId = sessionsTable.length > 0 ? Math.max(0, ...sessionsTable.map(x => x.session_id)) + 1 : 1001;
-                nextQuizId = quizzesTable.length > 0 ? Math.max(0, ...quizzesTable.map(x => x.quiz_id)) + 1 : 5001;
-                nextProgressId = userProgressTable.length > 0 ? Math.max(0, ...userProgressTable.map(x => x.progress_id)) + 1 : 1;
+                nextUserId = Math.max(0, ...usersTable.map(x => x.user_id)) + 1;
+                nextCourseId = Math.max(0, ...coursesTable.map(x => x.course_id)) + 1;
+                nextSessionId = Math.max(0, ...sessionsTable.map(x => x.session_id)) + 1;
+                nextQuizId = Math.max(0, ...quizzesTable.map(x => x.quiz_id)) + 1;
+                nextProgressId = Math.max(0, ...userProgressTable.map(x => x.progress_id)) + 1;
                 
                 showToast('Sinkronisasi Supabase selesai!', 'success');
             } catch (error) {
                 console.error("Error fetching data:", error);
-                showToast("Gagal memuat data dari Supabase. Cek console browser Anda.", "error");
+                showToast("Gagal memuat data dari Supabase. Cek konfigurasi dan RLS Anda.", "error");
             }
         }
 
         window.manualSyncSupabase = async function() {
             if (!supabaseClient && supabaseUrl && supabaseKey) {
-                supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+                try {
+                    supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+                } catch(e) {}
             }
             if (!supabaseClient) {
-                showToast('Konfigurasi Supabase belum dilakukan. Silakan atur di menu Konfigurasi Database.', 'warning');
+                showToast('Konfigurasi Supabase belum dilakukan.', 'warning');
+                navigateTo('supabase_setup');
                 return;
             }
             await fetchDataFromSupabase();
@@ -378,8 +371,8 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                             ${state.user.nama_lengkap.charAt(0)}
                         </div>
                         <div class="h-6 w-px bg-slate-200"></div>
-                        <button onclick="logout()" class="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 border border-red-200 flex-shrink-0 shadow-sm">
-                            <i class="ph ph-sign-out text-lg"></i> <span class="hidden sm:inline">Keluar</span>
+                        <button onclick="logout()" class="text-red-600 hover:bg-red-50 hover:text-red-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 border border-transparent hover:border-red-100 flex-shrink-0">
+                            <i class="ph ph-sign-out text-xl"></i> <span class="hidden sm:inline">Keluar</span>
                         </button>
                     </div>
                 </nav>
@@ -467,19 +460,6 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
         }
 
         function getTeacherFormCourseHTML() {
-            let guruOptionsHTML = '';
-            if (state.user.role === 'Admin') {
-                const gurus = usersTable.filter(u => u.role === 'Guru');
-                guruOptionsHTML = `
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Tetapkan Guru / Instruktur</label>
-                        <select id="in-course-guru" required class="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
-                            ${gurus.map(g => `<option value="${g.user_id}">${g.nama_lengkap} (${g.email})</option>`).join('')}
-                        </select>
-                    </div>
-                `;
-            }
-
             return `
                 <div class="flex-1 bg-slate-50 overflow-y-auto custom-scrollbar p-6">
                     <div class="max-w-3xl mx-auto">
@@ -497,7 +477,6 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                             
                             <form id="form-buat-topik" class="p-6 space-y-6" onsubmit="handleSaveCourse(event)">
                                 <div class="space-y-4">
-                                    ${guruOptionsHTML}
                                     <div>
                                         <label class="block text-sm font-medium text-slate-700 mb-1">Judul Topik/Kursus</label>
                                         <input id="in-course-title" type="text" required class="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Contoh: Pemrograman JavaScript Dasar">
@@ -522,19 +501,13 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
 
         window.handleSaveCourse = async function(e) {
             e.preventDefault();
-            
             const newCourseId = nextCourseId++;
             const title = document.getElementById('in-course-title').value;
             const desc = document.getElementById('in-course-desc').value;
-            let guruId = state.user.user_id;
-
-            if (state.user.role === 'Admin') {
-                guruId = parseInt(document.getElementById('in-course-guru').value);
-            }
 
             const newCourse = {
                 course_id: newCourseId,
-                guru_id: guruId,
+                guru_id: state.user.user_id,
                 judul_kursus: title,
                 deskripsi_singkat: desc
             };
@@ -542,111 +515,8 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
             coursesTable.push(newCourse);
             if (supabaseClient) await supabaseClient.from('courses').insert([newCourse]);
 
-            showToast('Topik baru berhasil dibuat!', 'success');
+            showToast('Topik baru berhasil disimpan!', 'success');
             navigateTo('dashboard');
-        };
-
-        function getTeacherManageStudentsHTML() {
-            const students = usersTable.filter(u => u.role === 'Siswa');
-            
-            return `
-                <div class="flex-1 bg-slate-50 overflow-y-auto custom-scrollbar p-6">
-                    <div class="max-w-4xl mx-auto">
-                        <button onclick="navigateTo('dashboard')" class="text-indigo-600 hover:underline flex items-center gap-1 mb-4 text-sm font-medium w-fit">
-                            <i class="ph ph-arrow-left"></i> Kembali ke Dasbor
-                        </button>
-                        
-                        <div class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden mb-8">
-                            <div class="bg-slate-800 p-6 text-white border-b border-slate-900">
-                                <h2 class="text-2xl font-bold flex items-center gap-2">
-                                    <i class="ph-fill ph-user-plus text-blue-400"></i> Tambah Siswa Baru
-                                </h2>
-                                <p class="text-slate-300 mt-1 text-sm">Daftarkan akun siswa agar mereka bisa mengakses platform.</p>
-                            </div>
-                            
-                            <form class="p-6 space-y-4" onsubmit="handleAddStudent(event)">
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-slate-700 mb-1">Nama Lengkap Siswa</label>
-                                        <input id="in-student-name" type="text" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all" placeholder="Misal: Siti Aminah">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-slate-700 mb-1">Alamat Email</label>
-                                        <input id="in-student-email" type="email" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all" placeholder="siti@sekolah.com">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-slate-700 mb-1">Kata Sandi (Password)</label>
-                                        <input id="in-student-password" type="text" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all" placeholder="Misal: 123456" value="123456">
-                                    </div>
-                                </div>
-                                <div class="pt-2 flex justify-end">
-                                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm transition-colors flex items-center gap-2">
-                                        <i class="ph-bold ph-floppy-disk"></i> Simpan / Daftarkan
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-
-                        <div class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
-                            <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                                <h3 class="font-bold text-slate-800 flex items-center gap-2"><i class="ph-fill ph-users text-slate-500"></i> Daftar Siswa Terdaftar</h3>
-                                <span class="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full border border-blue-200">${students.length} Total</span>
-                            </div>
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-left">
-                                    <thead class="bg-white text-xs text-slate-500 uppercase border-b border-slate-200">
-                                        <tr>
-                                            <th class="p-4">ID</th>
-                                            <th class="p-4">Nama Siswa</th>
-                                            <th class="p-4">Email</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-100">
-                                        ${students.map(s => `
-                                            <tr class="hover:bg-slate-50 transition-colors">
-                                                <td class="p-4 text-sm font-medium text-slate-400">#${s.user_id}</td>
-                                                <td class="p-4 font-medium text-slate-800 flex items-center gap-3">
-                                                    <div class="w-8 h-8 rounded-full bg-blue-100 border border-blue-200 text-blue-600 flex items-center justify-center text-xs font-bold shrink-0">${s.nama_lengkap.charAt(0)}</div>
-                                                    ${s.nama_lengkap}
-                                                </td>
-                                                <td class="p-4 text-sm text-slate-600">${s.email}</td>
-                                            </tr>
-                                        `).join('')}
-                                        ${students.length === 0 ? `<tr><td colspan="3" class="p-8 text-center text-slate-500 italic">Belum ada data siswa terdaftar.</td></tr>` : ''}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        window.handleAddStudent = async function(e) {
-            e.preventDefault();
-            const name = document.getElementById('in-student-name').value;
-            const email = document.getElementById('in-student-email').value;
-            const password = document.getElementById('in-student-password').value;
-
-            const isEmailExist = usersTable.some(u => u.email === email);
-            if (isEmailExist) {
-                showToast('Email tersebut sudah terdaftar!', 'error');
-                return;
-            }
-
-            const newUser = {
-                user_id: nextUserId++,
-                nama_lengkap: name,
-                email: email,
-                password: password,
-                role: 'Siswa'
-            };
-            
-            usersTable.push(newUser);
-            if (supabaseClient) await supabaseClient.from('users').insert([newUser]);
-
-            showToast('Siswa baru berhasil didaftarkan!', 'success');
-            render(); 
         };
 
         function getAdminDashboardHTML() {
@@ -662,15 +532,12 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                                 <h2 class="text-3xl font-bold mb-2">Portal Administrator</h2>
                                 <p class="text-emerald-100">Kelola pengguna, pantau aktivitas, dan atur sistem LMS secara terpusat.</p>
                             </div>
-                            <div class="relative z-10 flex flex-col sm:flex-row gap-3 flex-wrap">
-                                <button onclick="manualSyncSupabase()" class="bg-teal-600 hover:bg-teal-700 text-white border border-teal-500 font-bold py-3 px-5 rounded-lg shadow-lg transition-colors flex items-center gap-2">
+                            <div class="relative z-10 flex flex-col sm:flex-row gap-3">
+                                <button onclick="manualSyncSupabase()" class="bg-teal-600 hover:bg-teal-700 text-white border border-teal-500 font-bold py-3 px-6 rounded-lg shadow-lg transition-colors flex items-center gap-2">
                                     <i class="ph-bold ph-cloud-arrow-down text-xl"></i> Tarik Data (Sync)
                                 </button>
-                                <button onclick="navigateTo('admin_users')" class="bg-white text-emerald-800 hover:bg-emerald-50 font-bold py-3 px-5 rounded-lg shadow-lg transition-colors flex items-center gap-2">
+                                <button onclick="navigateTo('admin_users')" class="bg-white text-emerald-800 hover:bg-emerald-50 font-bold py-3 px-6 rounded-lg shadow-lg transition-colors flex items-center gap-2">
                                     <i class="ph-bold ph-users-three text-xl"></i> Manajemen Pengguna
-                                </button>
-                                <button onclick="navigateTo('form_topik')" class="bg-emerald-900 text-white hover:bg-emerald-950 font-bold py-3 px-5 rounded-lg shadow-lg transition-colors flex items-center gap-2">
-                                    <i class="ph-bold ph-plus-circle text-xl"></i> Buat Topik
                                 </button>
                             </div>
                             <i class="ph ph-shield-check absolute -right-10 -bottom-10 text-9xl text-white opacity-10 transform -rotate-12"></i>
@@ -712,7 +579,6 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                                             <th class="p-4">Judul Topik</th>
                                             <th class="p-4">Instruktur</th>
                                             <th class="p-4">Jml. Sesi</th>
-                                            <th class="p-4 text-center">Aksi</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-100">
@@ -725,13 +591,10 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                                                     <td class="p-4 font-medium text-slate-800">${c.judul_kursus}</td>
                                                     <td class="p-4 text-sm text-slate-600">${guru ? guru.nama_lengkap : 'Instruktur Tidak Diketahui'}</td>
                                                     <td class="p-4 text-sm font-bold text-slate-700">${sesiCount}</td>
-                                                    <td class="p-4 text-center">
-                                                        <button onclick="navigateTo('course_guru', {courseId: ${c.course_id}})" class="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-semibold px-3 py-1.5 rounded text-xs transition-colors">Kelola</button>
-                                                    </td>
                                                 </tr>
                                             `;
                                         }).join('')}
-                                        ${coursesTable.length === 0 ? `<tr><td colspan="5" class="p-8 text-center text-slate-500 italic">Belum ada topik yang dibuat.</td></tr>` : ''}
+                                        ${coursesTable.length === 0 ? `<tr><td colspan="4" class="p-8 text-center text-slate-500 italic">Belum ada topik yang dibuat.</td></tr>` : ''}
                                     </tbody>
                                 </table>
                             </div>
@@ -791,7 +654,7 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
 
                         <div class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
                             <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                                <h3 class="font-bold text-slate-800 flex items-center gap-2"><i class="ph-fill ph-users-three text-slate-500"></i> Daftar Seluruh Pengguna Sistem</h3>
+                                <h3 class="font-bold text-slate-800 flex items-center gap-2"><i class="ph-fill ph-users-three text-slate-500"></i> Daftar Pengguna Sistem</h3>
                                 <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full border border-emerald-200">${allUsers.length} Total</span>
                             </div>
                             <div class="overflow-x-auto">
@@ -818,7 +681,7 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                                                     <span class="px-2 py-1 rounded text-xs font-bold ${u.role === 'Guru' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'}">${u.role}</span>
                                                 </td>
                                                 <td class="p-4 text-center">
-                                                    <button onclick="adminDeleteUser(${u.user_id})" class="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded transition-colors" title="Hapus Pengguna"><i class="ph-bold ph-trash"></i></button>
+                                                    <button onclick="adminDeleteUser(${u.user_id})" class="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded transition-colors" title="Hapus"><i class="ph-bold ph-trash"></i></button>
                                                 </td>
                                             </tr>
                                         `).join('')}
@@ -845,18 +708,11 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                 return;
             }
 
-            const newUser = {
-                user_id: nextUserId++,
-                nama_lengkap: name,
-                email: email,
-                password: password,
-                role: role
-            };
-            
+            const newUser = { user_id: nextUserId++, nama_lengkap: name, email: email, password: password, role: role };
             usersTable.push(newUser);
             if (supabaseClient) await supabaseClient.from('users').insert([newUser]);
 
-            showToast(`Pengguna baru (${role}) berhasil ditambahkan!`, 'success');
+            showToast(`Pengguna baru (${role}) berhasil didaftarkan!`, 'success');
             render(); 
         };
 
@@ -865,23 +721,111 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
             if (index !== -1) {
                 const userName = usersTable[index].nama_lengkap;
                 usersTable.splice(index, 1);
-                
                 if (supabaseClient) await supabaseClient.from('users').delete().eq('user_id', userId);
-                
-                showToast(`Pengguna ${userName} berhasil dihapus.`, 'info');
+                showToast(`Pengguna ${userName} dihapus.`, 'info');
                 render();
             }
+        };
+
+        function getTeacherManageStudentsHTML() {
+            const students = usersTable.filter(u => u.role === 'Siswa');
+            
+            return `
+                <div class="flex-1 bg-slate-50 overflow-y-auto custom-scrollbar p-6">
+                    <div class="max-w-4xl mx-auto">
+                        <button onclick="navigateTo('dashboard')" class="text-indigo-600 hover:underline flex items-center gap-1 mb-4 text-sm font-medium w-fit">
+                            <i class="ph ph-arrow-left"></i> Kembali ke Dasbor
+                        </button>
+                        
+                        <div class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden mb-8">
+                            <div class="bg-slate-800 p-6 text-white border-b border-slate-900">
+                                <h2 class="text-2xl font-bold flex items-center gap-2">
+                                    <i class="ph-fill ph-user-plus text-blue-400"></i> Tambah Siswa Baru
+                                </h2>
+                                <p class="text-slate-300 mt-1 text-sm">Daftarkan akun siswa agar mereka bisa mengakses platform.</p>
+                            </div>
+                            
+                            <form class="p-6 space-y-4" onsubmit="handleAddStudent(event)">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-1">Nama Lengkap Siswa</label>
+                                        <input id="in-student-name" type="text" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Siti Aminah">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-1">Alamat Email</label>
+                                        <input id="in-student-email" type="email" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="siti@sekolah.com">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-1">Kata Sandi</label>
+                                        <input id="in-student-password" type="text" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" value="123456">
+                                    </div>
+                                </div>
+                                <div class="pt-2 flex justify-end">
+                                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm transition-colors flex items-center gap-2">
+                                        <i class="ph-bold ph-floppy-disk"></i> Simpan / Daftarkan
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+                            <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                                <h3 class="font-bold text-slate-800 flex items-center gap-2"><i class="ph-fill ph-users text-slate-500"></i> Daftar Siswa Terdaftar</h3>
+                                <span class="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full border border-blue-200">${students.length} Total</span>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left">
+                                    <thead class="bg-white text-xs text-slate-500 uppercase border-b border-slate-200">
+                                        <tr><th class="p-4">ID</th><th class="p-4">Nama Siswa</th><th class="p-4">Email</th></tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        ${students.map(s => `
+                                            <tr class="hover:bg-slate-50">
+                                                <td class="p-4 text-sm text-slate-400">#${s.user_id}</td>
+                                                <td class="p-4 font-medium text-slate-800 flex items-center gap-3">
+                                                    <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">${s.nama_lengkap.charAt(0)}</div>
+                                                    ${s.nama_lengkap}
+                                                </td>
+                                                <td class="p-4 text-sm text-slate-600">${s.email}</td>
+                                            </tr>
+                                        `).join('')}
+                                        ${students.length === 0 ? `<tr><td colspan="3" class="p-8 text-center text-slate-500 italic">Belum ada siswa.</td></tr>` : ''}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        window.handleAddStudent = async function(e) {
+            e.preventDefault();
+            const name = document.getElementById('in-student-name').value;
+            const email = document.getElementById('in-student-email').value;
+            const password = document.getElementById('in-student-password').value;
+
+            if (usersTable.some(u => u.email === email)) {
+                showToast('Email sudah terdaftar!', 'error');
+                return;
+            }
+
+            const newUser = { user_id: nextUserId++, nama_lengkap: name, email: email, password: password, role: 'Siswa' };
+            usersTable.push(newUser);
+            if (supabaseClient) await supabaseClient.from('users').insert([newUser]);
+
+            showToast('Siswa berhasil didaftarkan!', 'success');
+            render(); 
         };
 
         function getTeacherCourseHTML() {
             const course = coursesTable.find(c => c.course_id == state.activeCourseId);
             const sessions = DB.getCourseSessions(course.course_id);
-            
             const students = usersTable.filter(u => u.role === 'Siswa');
+            
             let reportHTML = students.map(student => {
                 const percent = DB.getCourseProgressPercent(student.user_id, course.course_id);
                 let isLulus = percent === 100;
-                
                 return `
                     <tr class="border-b border-slate-100 hover:bg-slate-50">
                         <td class="p-3 text-sm font-medium text-slate-800">${student.nama_lengkap}</td>
@@ -915,31 +859,27 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <div class="lg:col-span-2 space-y-4">
                                 <div class="flex justify-between items-center bg-indigo-50 p-4 rounded-lg border border-indigo-100">
-                                    <h3 class="font-bold text-indigo-900"><i class="ph-fill ph-list-numbers"></i> Daftar Sesi Pembelajaran</h3>
+                                    <h3 class="font-bold text-indigo-900"><i class="ph-fill ph-list-numbers"></i> Sesi Pembelajaran</h3>
                                     <button onclick="navigateTo('form_sesi')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-1.5 px-3 rounded flex items-center gap-1 shadow-sm">
                                         <i class="ph ph-plus"></i> Tambah Sesi
                                     </button>
                                 </div>
-                                
                                 ${sessions.map(s => `
                                     <div class="bg-white p-4 rounded-lg border border-slate-200 flex justify-between items-center shadow-sm">
                                         <div>
                                             <span class="text-xs font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded mr-2">Sesi ${s.urutan_sesi}</span>
-                                            <span class="font-medium text-slate-800 line-clamp-1">${s.deskripsi_modul.substring(0,60)}...</span>
+                                            <span class="font-medium text-slate-800">${s.deskripsi_modul.substring(0,50)}...</span>
                                         </div>
-                                        <div class="text-sm text-slate-500 border-l pl-4 ml-4">
-                                            KKM: <span class="font-bold text-slate-700">${s.kkm_kuis}</span>
-                                        </div>
+                                        <div class="text-sm text-slate-500 border-l pl-4">KKM: <span class="font-bold text-slate-700">${s.kkm_kuis}</span></div>
                                     </div>
-                                `).join('') || '<div class="text-center p-8 text-slate-400 bg-white rounded-lg border border-dashed border-slate-300">Belum ada sesi dibuat.</div>'}
+                                `).join('') || '<div class="text-center p-8 text-slate-400 bg-white rounded-lg border border-dashed">Belum ada sesi.</div>'}
                             </div>
 
                             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                                 <div class="bg-slate-800 p-4 text-white">
                                     <h3 class="font-bold flex items-center gap-2"><i class="ph-fill ph-chart-bar text-yellow-400"></i> Rapor Progres Siswa</h3>
-                                    <p class="text-xs text-slate-300 mt-1">Dihasilkan otomatis oleh sistem.</p>
                                 </div>
-                                <div class="p-0 overflow-x-auto">
+                                <div class="overflow-x-auto">
                                     <table class="w-full text-left">
                                         <thead class="bg-slate-50 text-xs text-slate-500 uppercase border-b border-slate-200">
                                             <tr><th class="p-3">Siswa</th><th class="p-3">Progres</th><th class="p-3">Status</th></tr>
@@ -968,77 +908,58 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                         <div class="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
                             <div class="bg-indigo-600 p-6 text-white border-b border-indigo-700">
                                 <h2 class="text-2xl font-bold flex items-center gap-2">
-                                    <i class="ph-fill ph-file-plus"></i> Form Buat Sesi Baru (Satu Pintu)
+                                    <i class="ph-fill ph-file-plus"></i> Form Buat Sesi Baru (10 Kuis)
                                 </h2>
-                                <p class="text-indigo-100 mt-1 text-sm">Topik: ${course.judul_kursus} | Urutan Sesi Otomatis: #${nextUrutan}</p>
+                                <p class="text-indigo-100 mt-1 text-sm">Topik: ${course.judul_kursus} | Sesi ke-${nextUrutan}</p>
                             </div>
                             
-                            <form id="form-buat-sesi" class="p-6 space-y-6" onsubmit="handleSaveSession(event, ${course.course_id}, ${nextUrutan})">
-                                <div>
-                                    <h3 class="font-bold text-slate-800 border-b pb-2 mb-3"><i class="ph ph-book"></i> Materi Pembelajaran</h3>
-                                    <div class="space-y-4">
-                                        <div>
-                                            <label class="block text-sm font-medium text-slate-700 mb-1">Deskripsi Modul</label>
-                                            <textarea id="in-desc" required rows="2" class="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Jelaskan ringkasan materi sesi ini..."></textarea>
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-slate-700 mb-1">Tujuan Belajar (Pisahkan dengan baris baru)</label>
-                                            <textarea id="in-obj" required rows="3" class="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Mampu memahami...\nDapat membuat..."></textarea>
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-slate-700 mb-1">Link URL Video</label>
-                                            <input id="in-vid" type="url" required class="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="https://..." value="https://placehold.co/800x450/1e293b/ffffff?text=Video+Baru">
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-slate-700 mb-1">Bahan Pemantik Diskusi</label>
-                                            <input id="in-disc" type="text" required class="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Ajukan pertanyaan untuk memantik diskusi forum...">
-                                        </div>
+                            <form class="p-6 space-y-6" onsubmit="handleSaveSession(event, ${course.course_id}, ${nextUrutan})">
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-1">Deskripsi Modul</label>
+                                        <textarea id="in-desc" required rows="2" class="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Ringkasan materi..."></textarea>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-1">Tujuan Belajar (Baris baru)</label>
+                                        <textarea id="in-obj" required rows="3" class="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Mampu memahami..."></textarea>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-1">Link URL Video</label>
+                                        <input id="in-vid" type="url" required class="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" value="https://placehold.co/800x450/1e293b/ffffff?text=Video+Materi">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-700 mb-1">Bahan Pemantik Diskusi</label>
+                                        <input id="in-disc" type="text" required class="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Pertanyaan diskusi...">
                                     </div>
                                 </div>
 
                                 <div class="bg-slate-50 p-4 border border-slate-200 rounded-lg">
-                                    <div class="flex justify-between items-center mb-4 border-b border-slate-200 pb-2">
+                                    <div class="flex justify-between items-center mb-4 border-b pb-2">
                                         <h3 class="font-bold text-slate-800"><i class="ph ph-question text-yellow-600"></i> Evaluasi (10 Kuis Sesi)</h3>
                                         <div class="flex items-center gap-2">
-                                            <label class="text-sm font-bold text-slate-700">KKM Kelulusan:</label>
+                                            <label class="text-sm font-bold text-slate-700">KKM:</label>
                                             <input id="in-kkm" type="number" min="0" max="100" value="70" class="w-20 border border-slate-300 rounded p-1 text-center font-bold">
                                         </div>
                                     </div>
-                                    
                                     <div class="space-y-6">
                                         ${Array.from({length: 10}).map((_, i) => `
                                             <div class="bg-white p-4 border border-slate-200 rounded-lg shadow-sm">
                                                 <h4 class="font-bold text-indigo-700 mb-3 text-sm">Pertanyaan ${i+1}</h4>
                                                 <div class="space-y-3">
                                                     <div>
-                                                        <label class="block text-sm font-medium text-slate-700 mb-1">Pertanyaan Kuis</label>
+                                                        <label class="block text-sm font-medium text-slate-700 mb-1">Pertanyaan</label>
                                                         <input id="in-q-${i}" type="text" required class="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Tuliskan pertanyaan...">
                                                     </div>
                                                     <div class="grid grid-cols-2 gap-3">
-                                                        <div>
-                                                            <label class="block text-xs text-slate-500 mb-1">Opsi A</label>
-                                                            <input id="in-opt-${i}-0" type="text" required class="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                                                        </div>
-                                                        <div>
-                                                            <label class="block text-xs text-slate-500 mb-1">Opsi B</label>
-                                                            <input id="in-opt-${i}-1" type="text" required class="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                                                        </div>
-                                                        <div>
-                                                            <label class="block text-xs text-slate-500 mb-1">Opsi C</label>
-                                                            <input id="in-opt-${i}-2" type="text" required class="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                                                        </div>
-                                                        <div>
-                                                            <label class="block text-xs text-slate-500 mb-1">Opsi D</label>
-                                                            <input id="in-opt-${i}-3" type="text" required class="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                                                        </div>
+                                                        <div><input id="in-opt-${i}-0" type="text" required class="w-full border rounded p-2 text-sm" placeholder="Opsi A"></div>
+                                                        <div><input id="in-opt-${i}-1" type="text" required class="w-full border rounded p-2 text-sm" placeholder="Opsi B"></div>
+                                                        <div><input id="in-opt-${i}-2" type="text" required class="w-full border rounded p-2 text-sm" placeholder="Opsi C"></div>
+                                                        <div><input id="in-opt-${i}-3" type="text" required class="w-full border rounded p-2 text-sm" placeholder="Opsi D"></div>
                                                     </div>
-                                                    <div class="mt-3">
-                                                        <label class="block text-xs font-bold text-slate-700 mb-1">Kunci Jawaban Benar</label>
-                                                        <select id="in-ans-${i}" required class="w-full border border-slate-300 rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
-                                                            <option value="0">Opsi A</option>
-                                                            <option value="1">Opsi B</option>
-                                                            <option value="2">Opsi C</option>
-                                                            <option value="3">Opsi D</option>
+                                                    <div>
+                                                        <label class="block text-xs font-bold text-slate-700 mb-1">Kunci Jawaban</label>
+                                                        <select id="in-ans-${i}" class="w-full border rounded p-2 text-sm bg-white">
+                                                            <option value="0">Opsi A</option><option value="1">Opsi B</option><option value="2">Opsi C</option><option value="3">Opsi D</option>
                                                         </select>
                                                     </div>
                                                 </div>
@@ -1047,7 +968,7 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                                     </div>
                                 </div>
 
-                                <div class="pt-6 flex justify-end mt-4">
+                                <div class="pt-6 flex justify-end">
                                     <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-colors flex items-center gap-2">
                                         <i class="ph-bold ph-floppy-disk"></i> Simpan / Daftarkan
                                     </button>
@@ -1061,7 +982,6 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
 
         window.handleSaveSession = async function(e, courseId, urutanSesi) {
             e.preventDefault();
-            
             const newSessionId = nextSessionId++;
             const newSession = {
                 session_id: newSessionId,
@@ -1096,7 +1016,7 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
             quizzesTable.push(...newQuizzes);
             if (supabaseClient) await supabaseClient.from('quizzes').insert(newQuizzes);
 
-            showToast('Sesi dan 10 Kuis berhasil disimpan ke Database Cloud!', 'success');
+            showToast('Sesi dan 10 kuis berhasil disimpan!', 'success');
             navigateTo('course_guru');
         };
 
@@ -1106,18 +1026,16 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                 return `
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
                         <div class="p-5">
-                            <h4 class="font-bold text-lg text-slate-800 mb-2 leading-tight">${c.judul_kursus}</h4>
+                            <h4 class="font-bold text-lg text-slate-800 mb-2">${c.judul_kursus}</h4>
                             <p class="text-slate-500 text-sm mb-4 line-clamp-2">${c.deskripsi_singkat}</p>
-                            
                             <div class="mb-4">
                                 <div class="flex justify-between text-xs text-slate-500 mb-1">
                                     <span>Penyelesaian</span><span class="font-medium text-slate-700">${percent}%</span>
                                 </div>
                                 <div class="w-full bg-slate-100 rounded-full h-1.5">
-                                    <div class="bg-blue-500 h-1.5 rounded-full transition-all" style="width: ${percent}%"></div>
+                                    <div class="bg-blue-500 h-1.5 rounded-full" style="width: ${percent}%"></div>
                                 </div>
                             </div>
-
                             <button onclick="navigateTo('course_siswa', {courseId: ${c.course_id}})" class="w-full bg-blue-50 text-blue-700 hover:bg-blue-600 hover:text-white border border-blue-100 font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
                                 Buka Ruang Belajar <i class="ph ph-arrow-circle-right text-lg"></i>
                             </button>
@@ -1134,10 +1052,9 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                                 <h2 class="text-3xl font-bold mb-2">Halo, ${state.user.nama_lengkap.split(' ')[0]}! 👋</h2>
                                 <p class="text-blue-100">Siap melanjutkan petualangan belajarmu hari ini?</p>
                             </div>
-                            <i class="ph ph-rocket-launch absolute -right-10 -bottom-10 text-9xl text-white opacity-10 transform -rotate-12"></i>
                         </div>
                         <div>
-                            <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2"><i class="ph-fill ph-books text-blue-600"></i> Daftar Topik Tersedia</h3>
+                            <h3 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2"><i class="ph-fill ph-books text-blue-600"></i> Daftar Topik</h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">${coursesHTML}</div>
                         </div>
                     </div>
@@ -1159,9 +1076,7 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                 const statusIcon = isLocked ? `<i class="ph-fill ph-lock-key text-slate-300 text-xl"></i>` : 
                                   (isCompleted ? `<i class="ph-fill ph-check-circle text-green-500 text-xl"></i>` : `<i class="ph ph-play-circle text-blue-500 text-xl"></i>`);
                 const bgClass = isLocked ? 'bg-slate-50 opacity-60' : 'bg-white hover:bg-slate-50 cursor-pointer shadow-sm';
-                const textClass = isLocked ? 'text-slate-400' : 'text-slate-700';
-                
-                const clickAction = isLocked ? `onclick="showToast('Selesaikan sesi sebelumnya (Sesi ${s.urutan_sesi - 1}) terlebih dahulu!', 'warning')"` 
+                const clickAction = isLocked ? `onclick="showToast('Selesaikan sesi sebelumnya terlebih dahulu!', 'warning')"` 
                                              : `onclick="navigateTo('session_siswa', {sessionId: ${s.session_id}})"`;
 
                 return `
@@ -1170,11 +1085,10 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                             <div class="w-8 flex justify-center">${statusIcon}</div>
                             <div>
                                 <span class="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1 block">Sesi ${s.urutan_sesi}</span>
-                                <h5 class="font-medium ${textClass} line-clamp-1">${s.deskripsi_modul.substring(0, 50)}...</h5>
+                                <h5 class="font-medium text-slate-700 line-clamp-1">${s.deskripsi_modul.substring(0, 50)}...</h5>
                             </div>
                         </div>
-                        ${isCompleted ? `<span class="text-green-600 text-xs font-bold bg-green-50 px-2 py-1 border border-green-200 rounded">TUNTAS (Skor: ${p.skor_kuis})</span>` 
-                                      : (!isLocked ? `<button class="text-blue-600 text-sm font-medium hover:underline">Mulai</button>` : '')}
+                        ${isCompleted ? `<span class="text-green-600 text-xs font-bold bg-green-50 px-2 py-1 border rounded">TUNTAS (Skor: ${p.skor_kuis})</span>` : (!isLocked ? `<button class="text-blue-600 text-sm font-medium hover:underline">Mulai</button>` : '')}
                     </div>
                 `;
             }).join('');
@@ -1197,13 +1111,13 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                                     <i class="ph-fill ph-certificate ${isEligibleForCert ? 'text-yellow-500' : 'text-slate-300'} text-2xl"></i> Sertifikat Kelulusan
                                 </h3>
                                 <p class="text-sm text-slate-500">
-                                    ${isEligibleForCert ? 'Sistem memverifikasi semua sesi telah tuntas. Sertifikat siap diunduh.' : 'Sistem otomatis mengunci sertifikat hingga seluruh sesi pembelajaran tuntas 100%.'}
+                                    ${isEligibleForCert ? 'Sertifikat siap diunduh.' : 'Tuntaskan seluruh sesi (100%) untuk membuka sertifikat.'}
                                 </p>
                             </div>
                             <div>
                                 ${isEligibleForCert 
                                     ? `<button onclick="generateCertificatePDF(${course.course_id})" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg shadow-yellow-500/30 transition-all flex items-center gap-2 whitespace-nowrap animate-pulse"><i class="ph ph-download-simple text-xl"></i> Unduh Sertifikat</button>`
-                                    : `<button disabled class="bg-slate-100 text-slate-400 font-semibold py-3 px-6 rounded-lg flex items-center gap-2 whitespace-nowrap cursor-not-allowed border border-slate-200"><i class="ph ph-lock-key text-xl"></i> Terkunci</button>`}
+                                    : `<button disabled class="bg-slate-100 text-slate-400 font-semibold py-3 px-6 rounded-lg flex items-center gap-2 whitespace-nowrap cursor-not-allowed border"><i class="ph ph-lock-key text-xl"></i> Terkunci</button>`}
                             </div>
                         </div>
                         <div>
@@ -1217,9 +1131,7 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
 
         function getStudentSessionHTML() {
             const session = sessionsTable.find(s => s.session_id == state.activeSessionId);
-            const course = coursesTable.find(c => c.course_id == session.course_id);
             const quizzes = DB.getSessionQuiz(session.session_id);
-            
             const progress = userProgressTable.find(p => p.user_id == state.user.user_id && p.session_id == session.session_id);
             const isDone = progress && progress.status_sesi === 'Selesai';
 
@@ -1248,24 +1160,11 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                         <div>
                             <h3 class="font-bold text-slate-800 flex items-center gap-2 mb-3"><i class="ph-fill ph-video-camera text-xl text-red-500"></i> Video Materi</h3>
                             <div class="w-full aspect-video bg-slate-900 rounded-xl overflow-hidden relative shadow-md">
-                                <img src="${session.link_video}" alt="Video" class="w-full h-full object-cover opacity-70" onerror="this.src='https://placehold.co/800x450/1e293b/ffffff?text=Video+Materi'">
+                                <img src="${session.link_video}" alt="Video" class="w-full h-full object-cover opacity-70">
                                 <div class="absolute inset-0 flex items-center justify-center">
-                                    <button class="w-16 h-16 bg-white/20 hover:bg-white/40 backdrop-blur border-2 border-white rounded-full flex items-center justify-center transition-all" onclick="showToast('Memutar video pembelajaran...', 'info')">
+                                    <button class="w-16 h-16 bg-white/20 hover:bg-white/40 backdrop-blur border-2 border-white rounded-full flex items-center justify-center transition-all" onclick="showToast('Memutar video...', 'info')">
                                         <i class="ph-fill ph-play text-3xl text-white ml-1"></i>
                                     </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="border border-slate-200 rounded-xl bg-white p-5">
-                            <h3 class="font-bold text-slate-800 flex items-center gap-2 mb-2"><i class="ph-fill ph-chats-circle text-xl text-blue-500"></i> Forum Diskusi Sesi</h3>
-                            <div class="bg-blue-50 border border-blue-100 p-3 rounded-lg text-sm text-blue-800 mb-4">
-                                <span class="font-bold">Pemantik Instruktur:</span> ${session.bahan_diskusi}
-                            </div>
-                            <div class="flex gap-3 mt-4 pt-4 border-t border-slate-100">
-                                <div class="flex-1 relative">
-                                    <textarea rows="2" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none" placeholder="Tuliskan tanggapan Anda..."></textarea>
-                                    <button class="absolute bottom-2 right-2 bg-blue-600 text-white p-1.5 rounded-md hover:bg-blue-700" onclick="showToast('Tanggapan berhasil dikirim ke database.', 'success')"><i class="ph-bold ph-paper-plane-right"></i></button>
                                 </div>
                             </div>
                         </div>
@@ -1283,21 +1182,9 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                                                 <p class="font-medium text-slate-800 mb-4">${qIndex + 1}. ${quiz.pertanyaan}</p>
                                                 <div class="space-y-2">
                                                     ${quiz.pilihan_ganda.map((opt, i) => {
-                                                        let stateClass = "border-slate-200 text-slate-700 bg-white hover:bg-slate-50";
-                                                        let iconHtml = '<i class="ph-regular ph-circle text-slate-400"></i>';
-                                                        
-                                                        if (i === quiz.jawaban_benar) {
-                                                            stateClass = "bg-green-50 border-green-500 text-green-800 font-medium";
-                                                            iconHtml = '<i class="ph-fill ph-check-circle text-green-600"></i>';
-                                                        } else {
-                                                            stateClass = "bg-slate-50 border-slate-200 text-slate-400 opacity-70 cursor-not-allowed";
-                                                            iconHtml = '<i class="ph-regular ph-circle text-slate-400"></i>';
-                                                        }
-                                                        return `
-                                                            <div class="w-full text-left p-3 border rounded-lg ${stateClass} flex items-center gap-3">
-                                                                ${iconHtml} <span>${opt.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
-                                                            </div>
-                                                        `;
+                                                        const isCorrect = i === quiz.jawaban_benar;
+                                                        const stateClass = isCorrect ? "bg-green-50 border-green-500 text-green-800 font-medium" : "bg-slate-50 border-slate-200 text-slate-400 opacity-70";
+                                                        return `<div class="p-3 border rounded-lg ${stateClass} flex items-center gap-3">${opt}</div>`;
                                                     }).join('')}
                                                 </div>
                                             </div>
@@ -1309,7 +1196,7 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                                             <i class="ph-fill ph-warning-circle text-5xl text-red-500"></i>
                                         </div>
                                         <h3 class="text-4xl font-bold text-slate-800 mb-2">Skor Anda: <span class="text-red-600">${state.quizState.lastScore}</span></h3>
-                                        <p class="text-slate-600 mb-8 text-lg">KKM Kelulusan: <span class="font-bold">${session.kkm_kuis}</span>. Maaf, Anda belum mencapai target nilai.</p>
+                                        <p class="text-slate-600 mb-8 text-lg">KKM Kelulusan: <span class="font-bold">${session.kkm_kuis}</span>. Belum mencapai target.</p>
                                         <button onclick="retryQuiz(${session.session_id})" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-colors inline-flex items-center gap-2 text-lg">
                                             <i class="ph-bold ph-arrows-clockwise"></i> Coba Lagi & Acak Soal
                                         </button>
@@ -1319,7 +1206,6 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                                         const currentQIndex = state.quizState.currentIndex;
                                         const quiz = state.quizState.questions[currentQIndex];
                                         const totalQ = state.quizState.questions.length;
-                                        
                                         return `
                                             <div>
                                                 <div class="flex justify-between items-center mb-4 text-sm font-medium text-slate-500">
@@ -1334,7 +1220,7 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                                                                 <input type="radio" name="q-${quiz.quiz_id}" value="${i}" class="peer hidden" ${isChecked ? 'checked' : ''}>
                                                                 <div class="w-full text-left p-3 border rounded-lg transition-colors flex items-center gap-3 border-slate-200 text-slate-700 bg-white peer-checked:bg-blue-50 peer-checked:border-blue-500 peer-checked:text-blue-800 hover:bg-slate-50">
                                                                     <i class="ph-regular ph-circle text-slate-400 peer-checked:hidden"></i><i class="ph-fill ph-check-circle text-blue-600 hidden peer-checked:block"></i>
-                                                                    <span>${opt.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
+                                                                    <span>${opt}</span>
                                                                 </div>
                                                             </label>
                                                         `;
@@ -1342,21 +1228,19 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                                                 </div>
                                             </div>
                                             <div class="pt-6 mt-6 border-t border-slate-200 flex justify-between items-center">
-                                                <button onclick="navigateQuiz(-1)" class="${currentQIndex === 0 ? 'invisible' : ''} bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium py-2 px-4 rounded-lg transition-colors flex items-center gap-2">
+                                                <button onclick="navigateQuiz(-1)" class="${currentQIndex === 0 ? 'invisible' : ''} bg-white border border-slate-300 text-slate-700 font-medium py-2 px-4 rounded-lg flex items-center gap-2">
                                                     <i class="ph ph-arrow-left"></i> Sebelumnya
                                                 </button>
-                                                
                                                 ${currentQIndex === totalQ - 1 ? `
-                                                    <button onclick="submitPaginatedQuiz(${session.session_id})" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-colors flex items-center gap-2">
-                                                        Kumpulkan Jawaban <i class="ph-bold ph-paper-plane-right"></i>
+                                                    <button onclick="submitPaginatedQuiz(${session.session_id})" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md flex items-center gap-2">
+                                                        Kumpulkan <i class="ph-bold ph-paper-plane-right"></i>
                                                     </button>
                                                 ` : `
-                                                    <button onclick="navigateQuiz(1)" class="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-medium py-2 px-6 rounded-lg transition-colors flex items-center gap-2">
+                                                    <button onclick="navigateQuiz(1)" class="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-medium py-2 px-6 rounded-lg flex items-center gap-2">
                                                         Selanjutnya <i class="ph ph-arrow-right"></i>
                                                     </button>
                                                 `}
                                             </div>
-                                            <p class="text-xs text-slate-500 text-center mt-4"><i class="ph ph-info"></i> Soal akan diacak ulang jika nilai Anda tidak mencapai KKM (${session.kkm_kuis}).</p>
                                         `;
                                     })()}
                                 `)}
@@ -1386,14 +1270,12 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
             let answeredCount = Object.keys(state.quizState.answers).length;
 
             if (answeredCount < quizzes.length) {
-                showToast(`Anda baru menjawab ${answeredCount} dari ${quizzes.length} soal. Silakan lengkapi seluruhnya sebelum mengumpulkan!`, 'warning');
+                showToast(`Anda baru menjawab ${answeredCount} dari ${quizzes.length} soal!`, 'warning');
                 return;
             }
 
             quizzes.forEach(quiz => {
-                if (state.quizState.answers[quiz.quiz_id] === quiz.jawaban_benar) {
-                    correctCount++;
-                }
+                if (state.quizState.answers[quiz.quiz_id] === quiz.jawaban_benar) correctCount++;
             });
 
             const score = Math.round((correctCount / quizzes.length) * 100);
@@ -1405,36 +1287,25 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                     existingProg.status_sesi = 'Selesai';
                     if (supabaseClient) await supabaseClient.from('user_progress').update({ skor_kuis: score, status_sesi: 'Selesai' }).eq('progress_id', existingProg.progress_id);
                 } else {
-                    const newProg = {
-                        progress_id: nextProgressId++,
-                        user_id: state.user.user_id,
-                        session_id: sessionId,
-                        skor_kuis: score,
-                        status_sesi: 'Selesai'
-                    };
+                    const newProg = { progress_id: nextProgressId++, user_id: state.user.user_id, session_id: sessionId, skor_kuis: score, status_sesi: 'Selesai' };
                     userProgressTable.push(newProg);
                     if (supabaseClient) await supabaseClient.from('user_progress').insert([newProg]);
                 }
                 
-                showToast(`Sistem merekam kelulusan sesi (Skor: ${score})`, 'success');
+                showToast(`Kelulusan sesi terekam (Skor: ${score})`, 'success');
                 render(); 
-                
-                if (DB.getCourseProgressPercent(state.user.user_id, courseId) === 100) {
-                    triggerConfetti();
-                    setTimeout(() => showToast('🎉 Selamat! Seluruh sesi untuk topik ini tuntas. Sertifikat terbuka!', 'success'), 1000);
-                }
+                if (DB.getCourseProgressPercent(state.user.user_id, courseId) === 100) triggerConfetti();
             } else {
-                showToast(`Evaluasi selesai. Menghitung skor akhir...`, 'info');
                 state.quizState.lastScore = score;
                 state.quizState.showResultScreen = true;
                 render();
             }
-        }
+        };
 
         window.retryQuiz = function(sessionId) {
             initQuizState(sessionId, true);
             render();
-        }
+        };
 
         function triggerConfetti() {
             var duration = 3 * 1000;
@@ -1453,55 +1324,24 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
         function generateCertificatePDF(courseId) {
             const course = coursesTable.find(c => c.course_id === courseId);
             const date = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
-            const certId = 'CERT-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
-            doc.setFillColor(248, 250, 252); 
-            doc.rect(0, 0, 297, 210, 'F');
+            doc.setFillColor(248, 250, 252); doc.rect(0, 0, 297, 210, 'F');
             doc.setDrawColor(37, 99, 235); doc.setLineWidth(5); doc.rect(10, 10, 277, 190);
-            doc.setDrawColor(148, 163, 184); doc.setLineWidth(1); doc.rect(15, 15, 267, 180);
-
             doc.setTextColor(30, 41, 59);
             doc.setFontSize(40); doc.setFont("helvetica", "bold"); doc.text("SERTIFIKAT KELULUSAN", 148.5, 50, { align: "center" });
-            doc.setFontSize(16); doc.setFont("helvetica", "normal"); doc.text("Diberikan secara membanggakan kepada:", 148.5, 75, { align: "center" });
-            
+            doc.setFontSize(16); doc.setFont("helvetica", "normal"); doc.text("Diberikan kepada:", 148.5, 75, { align: "center" });
             doc.setFontSize(36); doc.setTextColor(37, 99, 235); doc.setFont("helvetica", "bolditalic"); doc.text(state.user.nama_lengkap, 148.5, 100, { align: "center" });
-            
-            doc.setTextColor(30, 41, 59); doc.setFontSize(14); doc.setFont("helvetica", "normal"); doc.text("Atas penyelesaian materi dan evaluasi sesuai database progres LMS pada program:", 148.5, 120, { align: "center" });
+            doc.setTextColor(30, 41, 59); doc.setFontSize(14); doc.setFont("helvetica", "normal"); doc.text("Atas penyelesaian program:", 148.5, 120, { align: "center" });
             doc.setFontSize(24); doc.setFont("helvetica", "bold"); doc.text(course.judul_kursus, 148.5, 135, { align: "center" });
-            
-            doc.setFontSize(12); doc.setFont("helvetica", "normal");
-            doc.text(`Diterbitkan pada: ${date}`, 40, 170); doc.text(`ID Referensi DB: ${certId}`, 40, 180);
-            
-            doc.setDrawColor(30, 41, 59); doc.setLineWidth(0.5); doc.line(200, 170, 260, 170);
-            const teacherName = usersTable.find(u => u.user_id == course.guru_id)?.nama_lengkap || 'Instruktur';
-            doc.text(teacherName, 230, 176, { align: "center" });
-            doc.setFontSize(10); doc.text("Instruktur Kelas", 230, 182, { align: "center" });
-
+            doc.setFontSize(12); doc.text(`Tanggal: ${date}`, 40, 170);
             doc.save(`Sertifikat_${course.judul_kursus.replace(/\s+/g, '_')}.pdf`);
-            showToast('Sertifikat berhasil di-generate dan diunduh.', 'success');
+            showToast('Sertifikat berhasil diunduh.', 'success');
         }
 
-        (async function initApp() {
-            try {
-                supabaseUrl = localStorage.getItem('SUPABASE_URL') || '';
-                supabaseKey = localStorage.getItem('SUPABASE_ANON_KEY') || '';
-            } catch (e) {
-                console.warn('LocalStorage error');
-            }
-
-            if (supabaseUrl && supabaseKey) {
-                try {
-                    supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
-                    await fetchDataFromSupabase();
-                } catch (err) {
-                    console.warn('Auto-sync failed on init');
-                }
-            }
-            bootApp(true);
-        })();
+        // Jalankan inisialisasi aplikasi
+        bootApp();
     </script>
 </body>
 </html>
