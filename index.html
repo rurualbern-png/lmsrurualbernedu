@@ -51,7 +51,7 @@
         let quizzesTable = [];
         let userProgressTable = [];
 
-        // Konfigurasi Tema Visual Topik (Themes)
+        // Konfigurasi 7 Tema Visual Menarik
         const THEME_OPTIONS = {
             indigo: {
                 id: 'indigo',
@@ -72,6 +72,16 @@
                 iconBg: 'bg-emerald-100 text-emerald-700',
                 btnBg: 'bg-emerald-600 hover:bg-emerald-700 text-white',
                 btnLight: 'bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700'
+            },
+            cyan: {
+                id: 'cyan',
+                nama: 'Cyber Cyan',
+                gradient: 'from-cyan-600 via-sky-700 to-blue-950',
+                cardAccent: 'border-cyan-100 hover:border-cyan-400 group-hover:bg-cyan-50/40',
+                badgeBg: 'bg-cyan-50 text-cyan-800 border-cyan-200',
+                iconBg: 'bg-cyan-100 text-cyan-800',
+                btnBg: 'bg-cyan-600 hover:bg-cyan-700 text-white',
+                btnLight: 'bg-cyan-50 hover:bg-cyan-600 hover:text-white text-cyan-800'
             },
             purple: {
                 id: 'purple',
@@ -103,16 +113,6 @@
                 btnBg: 'bg-rose-600 hover:bg-rose-700 text-white',
                 btnLight: 'bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-700'
             },
-            cyan: {
-                id: 'cyan',
-                nama: 'Cyber Cyan',
-                gradient: 'from-cyan-600 via-sky-700 to-blue-950',
-                cardAccent: 'border-cyan-100 hover:border-cyan-400 group-hover:bg-cyan-50/40',
-                badgeBg: 'bg-cyan-50 text-cyan-800 border-cyan-200',
-                iconBg: 'bg-cyan-100 text-cyan-800',
-                btnBg: 'bg-cyan-600 hover:bg-cyan-700 text-white',
-                btnLight: 'bg-cyan-50 hover:bg-cyan-600 hover:text-white text-cyan-800'
-            },
             slate: {
                 id: 'slate',
                 nama: 'Modern Slate',
@@ -129,11 +129,10 @@
             return THEME_OPTIONS[themeKey] || THEME_OPTIONS.indigo;
         }
 
-        // Data Mock Awal
         const initialUsersMock = [
             { user_id: 1, nama_lengkap: 'Super Admin', email: 'admin@lms.com', password: '123', role: 'Admin', instansi: 'Pusat Diklat Nasional', ttd_url: '' },
-            { user_id: 2, nama_lengkap: 'Budi Santoso, S.Pd', email: 'guru@lms.com', password: '123', role: 'Guru', instansi: 'SMA Negeri 1 Prestasi', ttd_url: '' },
-            { user_id: 3, nama_lengkap: 'Ahmad Fauzan', email: 'siswa@lms.com', password: '123', role: 'Siswa', instansi: 'SMA Negeri 1 Prestasi', ttd_url: '' }
+            { user_id: 2, nama_lengkap: 'Budi Santoso, S.Pd', email: 'guru@lms.com', password: '123', role: 'Guru', instansi: 'SMK Negeri 1 Teknologi', ttd_url: '' },
+            { user_id: 3, nama_lengkap: 'Ahmad Fauzan', email: 'siswa@lms.com', password: '123', role: 'Siswa', instansi: 'SMK Negeri 1 Teknologi', ttd_url: '' }
         ];
 
         const initialCoursesMock = [
@@ -141,7 +140,7 @@
                 course_id: 101, 
                 guru_id: 2, 
                 judul_kursus: 'Instalasi Tenaga Listrik 11', 
-                deskripsi_singkat: 'ITL merupakan sistem pemasangan komponen elektromekanik, mesin, saluran, dan perlengkapan untuk menyalurkan energi listrik.',
+                deskripsi_singkat: 'ITL merupakan sistem pemasangan komponen elektromekanik, mesin, saluran, dan perlengkapan untuk menyalurkan energi listrik berdaya besar.',
                 theme: 'indigo'
             },
             { 
@@ -186,7 +185,6 @@
             { quiz_id: 5010, session_id: 1001, pertanyaan: 'Komponen pemutus otomatis saat mendeteksi kebocoran arus ke tanah adalah?', pilihan_ganda: ['ELCB / RCCB', 'Sekring lebur', 'Saklar togel', 'Voltmeter'], jawaban_benar: 0 }
         ];
 
-        // State Global Aplikasi
         const state = {
             user: null, 
             currentView: 'login', // login, dashboard, course_siswa, session_siswa, course_guru, form_sesi, form_topik, admin_users, setting_sertifikat, supabase_setup
@@ -253,11 +251,13 @@
                 if (q) quizzesTable = JSON.parse(q); else quizzesTable = [...initialQuizzesMock];
                 if (p) userProgressTable = JSON.parse(p); else userProgressTable = [];
 
-                // Pastikan setiap topik memiliki properti theme
-                coursesTable.forEach((crs, idx) => {
-                    if (!crs.theme) {
-                        const defaultKeys = ['indigo', 'emerald', 'cyan', 'purple', 'amber'];
-                        crs.theme = defaultKeys[idx % defaultKeys.length];
+                // PENTING: Pulihkan tema persisten dari kunci khusus `lms_theme_[course_id]`
+                coursesTable.forEach((crs) => {
+                    const savedThemeKey = localStorage.getItem(`lms_theme_${crs.course_id}`);
+                    if (savedThemeKey) {
+                        crs.theme = savedThemeKey;
+                    } else if (!crs.theme) {
+                        crs.theme = 'indigo';
                     }
                 });
             } catch (err) {
@@ -267,6 +267,12 @@
 
         function saveLocalStorageData() {
             try {
+                // Selalu cadangkan tema setiap course ke kunci khusus lms_theme_[course_id]
+                coursesTable.forEach(crs => {
+                    if (crs.theme) {
+                        localStorage.setItem(`lms_theme_${crs.course_id}`, crs.theme);
+                    }
+                });
                 localStorage.setItem('LMS_USERS', JSON.stringify(usersTable));
                 localStorage.setItem('LMS_COURSES', JSON.stringify(coursesTable));
                 localStorage.setItem('LMS_SESSIONS', JSON.stringify(sessionsTable));
@@ -318,11 +324,21 @@
                 if (resUsers.data && resUsers.data.length > 0) usersTable = resUsers.data;
                 else { await supabaseClient.from('users').insert(initialUsersMock); usersTable = [...initialUsersMock]; }
 
+                // PENTING: Penggabungan data courses tanpa pernah mereset tema manual pengguna
                 if (resCourses.data && resCourses.data.length > 0) {
-                    coursesTable = resCourses.data.map((c, i) => ({
-                        ...c,
-                        theme: c.theme || ['indigo', 'emerald', 'cyan', 'purple', 'amber'][i % 5]
-                    }));
+                    coursesTable = resCourses.data.map(c => {
+                        const localSavedTheme = localStorage.getItem(`lms_theme_${c.course_id}`);
+                        // Prioritaskan c.theme dari DB jika terisi, jika null/kosong gunakan cadangan lokal pengguna
+                        const resolvedTheme = (c.theme && c.theme !== '') ? c.theme : (localSavedTheme || 'indigo');
+                        
+                        // Perbarui cadangan lokal
+                        localStorage.setItem(`lms_theme_${c.course_id}`, resolvedTheme);
+
+                        return {
+                            ...c,
+                            theme: resolvedTheme
+                        };
+                    });
                 } else {
                     await supabaseClient.from('courses').insert(initialCoursesMock); 
                     coursesTable = [...initialCoursesMock];
@@ -337,7 +353,7 @@
                 if (resProg.data) userProgressTable = resProg.data;
 
                 saveLocalStorageData();
-                showToast('Sinkronisasi Supabase selesai!', 'success');
+                showToast('Sinkronisasi selesai & tema tersimpan aman!', 'success');
                 render();
             } catch (err) {
                 console.error('Error Sync Supabase:', err);
@@ -421,7 +437,7 @@
                         <div class="mt-6 pt-5 border-t border-slate-100 flex flex-col gap-2.5">
                             <button type="button" onclick="manualSyncSupabase()" class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-xs">
                                 <i class="ph-bold ph-cloud-arrow-down text-lg"></i>
-                                <span>Tarik Data (Sync)</span>
+                                <span>Tarik Data dari Cloud (Sync)</span>
                             </button>
 
                             <button type="button" onclick="navigateTo('supabase_setup')" class="text-xs text-slate-500 hover:text-blue-600 font-semibold py-2 transition flex items-center justify-center gap-1.5">
@@ -471,7 +487,7 @@
                                         Salin SQL
                                     </button>
                                 </div>
-                                <textarea id="sql-script-area" readonly rows="6" class="w-full bg-slate-950 text-emerald-400 p-3 rounded-xl text-xs font-mono leading-relaxed outline-none resize-none custom-scrollbar">
+                                <textarea id="sql-script-area" readonly rows="7" class="w-full bg-slate-950 text-emerald-400 p-3 rounded-xl text-xs font-mono leading-relaxed outline-none resize-none custom-scrollbar">
 CREATE TABLE IF NOT EXISTS users (user_id bigint primary key, nama_lengkap text, email text, password text, role text, instansi text, ttd_url text);
 CREATE TABLE IF NOT EXISTS courses (course_id bigint primary key, guru_id bigint, judul_kursus text, deskripsi_singkat text, theme text);
 CREATE TABLE IF NOT EXISTS sessions (session_id bigint primary key, course_id bigint, urutan_sesi integer, deskripsi_modul text, tujuan_belajar text, link_video text, bahan_diskusi text, kkm_kuis integer);
@@ -952,6 +968,9 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
             const courseIdx = coursesTable.findIndex(c => Number(c.course_id) === Number(courseId));
             if (courseIdx !== -1) {
                 coursesTable[courseIdx].theme = themeId;
+                
+                // KUNCI CADANGAN PERSISTENSI: Simpan ke localStorage dengan ID unik
+                localStorage.setItem(`lms_theme_${courseId}`, themeId);
                 saveLocalStorageData();
 
                 if (supabaseClient) {
@@ -989,7 +1008,7 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                                 <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center gap-1.5">
                                     <i class="ph-bold ph-upload-simple"></i> Unggah File (.CSV)
                                 </label>
-                                <input type="file" id="bulk-file-input" accept=".csv,text/csv" onchange="handleBulkFileUpload(event)" class="w-full border border-slate-300 rounded-xl p-2.5 text-xs file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-100 file:text-amber-800 hover:file:bg-amber-200">
+                                <input type="file" id="bulk-file-input" accept=".csv,text/csv,text/plain" onchange="handleBulkFileUpload(event)" class="w-full border border-slate-300 rounded-xl p-2.5 text-xs file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-100 file:text-amber-800 hover:file:bg-amber-200">
                             </div>
 
                             <!-- Opsi Tempel Teks (Paste) -->
@@ -1003,7 +1022,7 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                                     </button>
                                 </div>
                                 <textarea id="bulk-text-area" rows="5" placeholder="Nama Lengkap, Email, Password&#10;Ahmad Fauzi, ahmad@sekolah.com, 123&#10;Rina Lestari, rina@sekolah.com, 123&#10;Bambang Suryo, bambang@sekolah.com, 123" class="w-full border border-slate-300 rounded-xl p-3 text-xs font-mono text-slate-800 break-all focus:ring-2 focus:ring-amber-500 outline-none resize-none custom-scrollbar"></textarea>
-                                <p class="text-[11px] text-slate-400 mt-0.5">Format: <code>Nama, Email, Password</code> (satu baris untuk setiap siswa, dipisahkan tanda koma atau titik koma).</p>
+                                <p class="text-[11px] text-slate-400 mt-0.5">Format: <code>Nama, Email, Password</code> (satu baris untuk setiap siswa, dipisahkan koma atau titik koma).</p>
                             </div>
 
                             <!-- Area Pratinjau Parsial -->
@@ -1073,10 +1092,8 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
             lines.forEach((line) => {
                 const trimmed = line.trim();
                 if (!trimmed) return;
-                // Lewati header jika baris pertama adalah judul kolom
                 if (trimmed.toLowerCase().startsWith('nama') && trimmed.toLowerCase().includes('email')) return;
 
-                // Pisahkan dengan koma atau titik-koma
                 const parts = trimmed.split(/[,;]/).map(p => p.trim());
                 if (parts.length >= 2) {
                     const nama = parts[0];
@@ -1125,7 +1142,6 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
             let skippedCount = 0;
 
             parsedBulkStudents.forEach(std => {
-                // Hindari email duplikat
                 const emailExists = usersTable.some(u => u.email.toLowerCase() === std.email.toLowerCase()) || newAccounts.some(u => u.email.toLowerCase() === std.email.toLowerCase());
                 if (emailExists) {
                     skippedCount++;
@@ -1327,8 +1343,9 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
             const selectedTheme = document.querySelector('input[name="course-theme-radio"]:checked')?.value || 'indigo';
 
             const maxId = coursesTable.reduce((m, c) => Math.max(m, Number(c.course_id) || 0), 100);
+            const newCourseId = maxId + 1;
             const newCourse = {
-                course_id: maxId + 1,
+                course_id: newCourseId,
                 guru_id: guruId,
                 judul_kursus: title,
                 deskripsi_singkat: desc,
@@ -1336,6 +1353,9 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
             };
 
             coursesTable.push(newCourse);
+            
+            // Simpan tema ke kunci cadangan lokal
+            localStorage.setItem(`lms_theme_${newCourseId}`, selectedTheme);
             saveLocalStorageData();
 
             if (supabaseClient) {
@@ -1539,6 +1559,9 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                 coursesTable[idx].judul_kursus = newTitle;
                 coursesTable[idx].deskripsi_singkat = newDesc;
                 coursesTable[idx].theme = newTheme;
+                
+                // Simpan kunci persistensi tema
+                localStorage.setItem(`lms_theme_${courseId}`, newTheme);
                 saveLocalStorageData();
             }
 
@@ -1624,8 +1647,8 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                 quizzes.push({
                     quiz_id: Date.now() + Math.floor(Math.random() * 1000),
                     session_id: sessionId,
-                    pertanyaan: 'Pertanyaan evaluasi tambahan...',
-                    pilihan_ganda: ['Opsi A', 'Opsi B', 'Opsi C', 'Opsi D'],
+                    pertanyaan: 'Pertanyaan evaluasi kompetensi...',
+                    pilihan_ganda: ['Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D'],
                     jawaban_benar: 0
                 });
             }
