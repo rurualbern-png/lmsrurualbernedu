@@ -3,46 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RuruAlbernEdu LMS</title>
+    <title>RuruAlbernEdu LMS - Platform Pembelajaran Interaktif</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Phosphor Icons -->
+    <!-- Phosphor Icons CDN -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <!-- Canvas Confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <!-- jsPDF for Certificate PDF Export -->
+    <!-- jsPDF for Certificate PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- Supabase Client Library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- Google Fonts: Inter & Playfair Display -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,600&display=swap" rel="stylesheet">
+    <!-- Google Fonts: Plus Jakarta Sans -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,600&display=swap" rel="stylesheet">
     
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .font-certificate { font-family: 'Playfair Display', serif; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        .font-cert { font-family: 'Playfair Display', serif; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        .fade-in { animation: fadeIn 0.2s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body class="text-slate-800 h-screen flex flex-col overflow-hidden select-text">
 
     <!-- Container Utama Aplikasi -->
-    <div id="app-root" class="h-full w-full flex flex-col"></div>
+    <div id="app-root" class="h-full w-full flex flex-col overflow-hidden"></div>
     
     <!-- Toast Notification Container -->
     <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 pointer-events-none"></div>
 
-    <!-- Custom Modal Container for Dialogs (Token, Edit, Bulk Import, Settings) -->
+    <!-- Custom Modal Container for Dialogs -->
     <div id="modal-container"></div>
 
     <script>
+        // Konfigurasi Klien Supabase
         let supabaseClient = null;
         let supabaseUrl = '';
         let supabaseKey = '';
+        let isCloudConnected = false;
 
         // Tabel Data Aplikasi
         let usersTable = [];
@@ -51,13 +53,13 @@
         let quizzesTable = [];
         let userProgressTable = [];
 
-        // Konfigurasi 7 Tema Visual Menarik
+        // Konfigurasi 7 Tema Visual Eksklusif
         const THEME_OPTIONS = {
             indigo: {
                 id: 'indigo',
                 nama: 'Royal Indigo',
                 gradient: 'from-indigo-600 via-indigo-700 to-blue-800',
-                cardAccent: 'border-indigo-100 hover:border-indigo-400 group-hover:bg-indigo-50/40',
+                cardAccent: 'border-indigo-100 hover:border-indigo-400 group-hover:bg-indigo-50/30',
                 badgeBg: 'bg-indigo-50 text-indigo-700 border-indigo-200',
                 iconBg: 'bg-indigo-100 text-indigo-700',
                 btnBg: 'bg-indigo-600 hover:bg-indigo-700 text-white',
@@ -67,7 +69,7 @@
                 id: 'emerald',
                 nama: 'Emerald Forest',
                 gradient: 'from-emerald-600 via-teal-700 to-slate-900',
-                cardAccent: 'border-emerald-100 hover:border-emerald-400 group-hover:bg-emerald-50/40',
+                cardAccent: 'border-emerald-100 hover:border-emerald-400 group-hover:bg-emerald-50/30',
                 badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
                 iconBg: 'bg-emerald-100 text-emerald-700',
                 btnBg: 'bg-emerald-600 hover:bg-emerald-700 text-white',
@@ -77,7 +79,7 @@
                 id: 'cyan',
                 nama: 'Cyber Cyan',
                 gradient: 'from-cyan-600 via-sky-700 to-blue-950',
-                cardAccent: 'border-cyan-100 hover:border-cyan-400 group-hover:bg-cyan-50/40',
+                cardAccent: 'border-cyan-100 hover:border-cyan-400 group-hover:bg-cyan-50/30',
                 badgeBg: 'bg-cyan-50 text-cyan-800 border-cyan-200',
                 iconBg: 'bg-cyan-100 text-cyan-800',
                 btnBg: 'bg-cyan-600 hover:bg-cyan-700 text-white',
@@ -87,7 +89,7 @@
                 id: 'purple',
                 nama: 'Sunset Violet',
                 gradient: 'from-purple-600 via-fuchsia-700 to-slate-900',
-                cardAccent: 'border-purple-100 hover:border-purple-400 group-hover:bg-purple-50/40',
+                cardAccent: 'border-purple-100 hover:border-purple-400 group-hover:bg-purple-50/30',
                 badgeBg: 'bg-purple-50 text-purple-700 border-purple-200',
                 iconBg: 'bg-purple-100 text-purple-700',
                 btnBg: 'bg-purple-600 hover:bg-purple-700 text-white',
@@ -97,7 +99,7 @@
                 id: 'amber',
                 nama: 'Amber Warmth',
                 gradient: 'from-amber-600 via-orange-600 to-yellow-800',
-                cardAccent: 'border-amber-100 hover:border-amber-400 group-hover:bg-amber-50/40',
+                cardAccent: 'border-amber-100 hover:border-amber-400 group-hover:bg-amber-50/30',
                 badgeBg: 'bg-amber-50 text-amber-800 border-amber-200',
                 iconBg: 'bg-amber-100 text-amber-800',
                 btnBg: 'bg-amber-600 hover:bg-amber-700 text-white',
@@ -107,7 +109,7 @@
                 id: 'rose',
                 nama: 'Ruby Rose',
                 gradient: 'from-rose-600 via-pink-700 to-red-900',
-                cardAccent: 'border-rose-100 hover:border-rose-400 group-hover:bg-rose-50/40',
+                cardAccent: 'border-rose-100 hover:border-rose-400 group-hover:bg-rose-50/30',
                 badgeBg: 'bg-rose-50 text-rose-700 border-rose-200',
                 iconBg: 'bg-rose-100 text-rose-700',
                 btnBg: 'bg-rose-600 hover:bg-rose-700 text-white',
@@ -127,6 +129,84 @@
 
         function getThemeConfig(themeKey) {
             return THEME_OPTIONS[themeKey] || THEME_OPTIONS.indigo;
+        }
+
+        /*
+          UNIVERSAL METADATA ENGINE (Schema-Free Architecture):
+          Fungsi ini menjamin penambahan topik tak terbatas tanpa perlu membuat kolom baru di database!
+          Atribut dinamis (theme, token_akses) dienkapsulasi ke dalam deskripsi_singkat dengan aman.
+          Jika Supabase memiliki kolom 'theme' & 'token_akses', sistem juga memanfaatkannya.
+        */
+        function packCoursePayload(course) {
+            const meta = {
+                theme: course.theme || 'indigo',
+                token: course.token_akses || generateRandomToken('EDU')
+            };
+            const cleanDesc = (course.deskripsi_singkat || '').replace(/<!--RAE_META:[\s\S]*?-->/g, '').trim();
+            const packedDesc = `${cleanDesc}\n<!--RAE_META:${JSON.stringify(meta)}-->`;
+            
+            return {
+                basePayload: {
+                    course_id: Number(course.course_id),
+                    guru_id: Number(course.guru_id),
+                    judul_kursus: course.judul_kursus,
+                    deskripsi_singkat: packedDesc
+                },
+                extendedPayload: {
+                    course_id: Number(course.course_id),
+                    guru_id: Number(course.guru_id),
+                    judul_kursus: course.judul_kursus,
+                    deskripsi_singkat: packedDesc,
+                    theme: meta.theme,
+                    token_akses: meta.token
+                }
+            };
+        }
+
+        function unpackCourseData(rawCourse) {
+            let theme = 'indigo';
+            let token = generateRandomToken('EDU');
+            let desc = rawCourse.deskripsi_singkat || '';
+
+            // 1. Ekstrak dari metadata terenkapsulasi
+            const metaMatch = desc.match(/<!--RAE_META:([\s\S]*?)-->/);
+            if (metaMatch) {
+                try {
+                    const parsed = JSON.parse(metaMatch[1]);
+                    if (parsed.theme) theme = parsed.theme;
+                    if (parsed.token) token = parsed.token;
+                    desc = desc.replace(/<!--RAE_META:[\s\S]*?-->/g, '').trim();
+                } catch (e) {
+                    console.warn('Gagal decode metadata course:', e);
+                }
+            }
+
+            // 2. Jika kolom cloud eksplisit ada, gunakan prioritas tertinggi
+            if (rawCourse.theme && rawCourse.theme.trim() !== '') theme = rawCourse.theme;
+            if (rawCourse.token_akses && rawCourse.token_akses.trim() !== '') token = rawCourse.token_akses;
+
+            // 3. Cadangan lokal (LocalStorage) jika pernah diatur
+            const localSavedTheme = localStorage.getItem(`lms_theme_${rawCourse.course_id}`);
+            if (localSavedTheme) theme = localSavedTheme;
+            const localSavedToken = localStorage.getItem(`lms_token_${rawCourse.course_id}`);
+            if (localSavedToken) token = localSavedToken;
+
+            // Sinkronkan cache lokal
+            localStorage.setItem(`lms_theme_${rawCourse.course_id}`, theme);
+            localStorage.setItem(`lms_token_${rawCourse.course_id}`, token);
+
+            return {
+                ...rawCourse,
+                deskripsi_singkat: desc,
+                theme: theme,
+                token_akses: token
+            };
+        }
+
+        // Generator Token Acak
+        function generateRandomToken(prefix = 'EDU') {
+            const rand = Math.floor(1000 + Math.random() * 9000);
+            return `${prefix}-${rand}`;
         }
 
         const initialUsersMock = [
@@ -188,12 +268,7 @@
             { quiz_id: 5010, session_id: 1001, pertanyaan: 'Komponen pemutus otomatis saat mendeteksi kebocoran arus ke tanah adalah?', pilihan_ganda: ['ELCB / RCCB', 'Sekring lebur', 'Saklar togel', 'Voltmeter'], jawaban_benar: 0 }
         ];
 
-        // Generator Token Acak
-        function generateRandomToken(prefix = 'EDU') {
-            const rand = Math.floor(1000 + Math.random() * 9000);
-            return `${prefix}-${rand}`;
-        }
-
+        // State Utama
         const state = {
             user: null, 
             currentView: 'login', // login, dashboard, course_siswa, session_siswa, course_guru, form_sesi, form_topik, admin_users, setting_sertifikat, supabase_setup
@@ -215,7 +290,7 @@
                 warning: { bg: 'bg-amber-500', icon: 'ph-warning' }
             };
             const cfg = configs[type] || configs.info;
-            toast.className = `${cfg.bg} text-white px-4 py-3 rounded-xl shadow-xl transform transition-all duration-300 translate-y-6 opacity-0 flex items-center gap-3 text-sm font-medium border border-white/10 z-50`;
+            toast.className = `${cfg.bg} text-white px-4 py-3 rounded-2xl shadow-xl transform transition-all duration-300 translate-y-6 opacity-0 flex items-center gap-3 text-sm font-semibold border border-white/10 z-50`;
             toast.innerHTML = `<i class="ph-bold ${cfg.icon} text-lg shrink-0"></i> <span>${message}</span>`;
             toastContainer.appendChild(toast);
             requestAnimationFrame(() => toast.classList.remove('translate-y-6', 'opacity-0'));
@@ -258,14 +333,11 @@
                 const completedCount = DB.getUserProgressForCourse(userId, courseId).filter(p => p.status_sesi === 'Selesai').length;
                 return Math.round((completedCount / allSessions.length) * 100);
             },
-            // Logika Akses Token Siswa
             isCourseUnlockedForStudent: (userId, courseId) => {
                 const course = coursesTable.find(c => Number(c.course_id) === Number(courseId));
                 if (!course) return false;
-                // Jika topik tidak memiliki token akses, otomatis terbuka
                 if (!course.token_akses || course.token_akses.trim() === '') return true;
 
-                // Cek daftar topik yang sudah di-unlock siswa
                 try {
                     const raw = localStorage.getItem(`lms_unlocked_${userId}`);
                     if (!raw) return false;
@@ -286,7 +358,7 @@
                         localStorage.setItem(key, JSON.stringify(unlockedList));
                     }
                 } catch (e) {
-                    console.warn('Gagal menyimpan status unlock kursus:', e);
+                    console.warn('Gagal simpan unlock:', e);
                 }
             }
         };
@@ -299,27 +371,10 @@
                 const q = localStorage.getItem('LMS_QUIZZES');
                 const p = localStorage.getItem('LMS_PROGRESS');
                 if (u) usersTable = JSON.parse(u); else usersTable = [...initialUsersMock];
-                if (c) coursesTable = JSON.parse(c); else coursesTable = [...initialCoursesMock];
+                if (c) coursesTable = JSON.parse(c).map(unpackCourseData); else coursesTable = initialCoursesMock.map(unpackCourseData);
                 if (s) sessionsTable = JSON.parse(s); else sessionsTable = [...initialSessionsMock];
                 if (q) quizzesTable = JSON.parse(q); else quizzesTable = [...initialQuizzesMock];
                 if (p) userProgressTable = JSON.parse(p); else userProgressTable = [];
-
-                // PENTING: Pulihkan tema persisten dan token akses dari kunci khusus
-                coursesTable.forEach((crs) => {
-                    const savedThemeKey = localStorage.getItem(`lms_theme_${crs.course_id}`);
-                    if (savedThemeKey) {
-                        crs.theme = savedThemeKey;
-                    } else if (!crs.theme) {
-                        crs.theme = 'indigo';
-                    }
-
-                    const savedToken = localStorage.getItem(`lms_token_${crs.course_id}`);
-                    if (savedToken) {
-                        crs.token_akses = savedToken;
-                    } else if (!crs.token_akses) {
-                        crs.token_akses = generateRandomToken('EDU');
-                    }
-                });
             } catch (err) {
                 console.warn('Gagal membaca LocalStorage:', err);
             }
@@ -347,26 +402,53 @@
             if (supabaseUrl && supabaseKey) {
                 try {
                     supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+                    isCloudConnected = true;
                     return true;
                 } catch (e) {
                     supabaseClient = null;
+                    isCloudConnected = false;
                     return false;
                 }
             }
+            isCloudConnected = false;
             return false;
         }
 
-        async function manualSyncSupabase() {
-            showToast('Menyinkronkan data dengan Supabase...', 'info');
+        async function uploadSingleCourseToCloud(course) {
+            if (!supabaseClient) return;
+            const payloads = packCoursePayload(course);
+
+            try {
+                // 1. Coba upload dengan payload lengkap
+                const { error: fullErr } = await supabaseClient.from('courses').upsert([payloads.extendedPayload]);
+                if (fullErr) {
+                    // 2. Fallback instan ke Base Payload (100% aman dari error kolom!)
+                    await supabaseClient.from('courses').upsert([payloads.basePayload]);
+                }
+            } catch (e) {
+                // Fallback kedua
+                try {
+                    await supabaseClient.from('courses').upsert([payloads.basePayload]);
+                } catch (err2) {
+                    console.warn('Fallback upload course:', err2);
+                }
+            }
+        }
+
+        async function manualSyncSupabase(silent = false) {
+            if (!silent) showToast('Menyinkronkan data dengan Supabase...', 'info');
             const isReady = await initSupabaseClient();
             if (!isReady || !supabaseClient) {
-                showToast('Kunci Supabase belum lengkap. Silakan atur konfigurasi.', 'warning');
-                state.currentView = 'supabase_setup';
-                render();
+                if (!silent) {
+                    showToast('Koneksi Supabase belum lengkap. Silakan atur konfigurasi.', 'warning');
+                    state.currentView = 'supabase_setup';
+                    render();
+                }
                 return;
             }
 
             try {
+                // 1. Tarik Data Cloud
                 const [resUsers, resCourses, resSessions, resQuizzes, resProg] = await Promise.all([
                     supabaseClient.from('users').select('*'),
                     supabaseClient.from('courses').select('*'),
@@ -375,34 +457,32 @@
                     supabaseClient.from('user_progress').select('*')
                 ]);
 
-                if (resUsers.error || resCourses.error || resSessions.error || resQuizzes.error || resProg.error) {
-                    throw new Error('Supabase mengembalikan error query. Pastikan RLS dinonaktifkan.');
+                // 2. TWO-WAY UPLOAD: Cek jika ada topik lokal yang belum ada di Cloud, unggah otomatis!
+                let cloudCourses = (resCourses.data && resCourses.data.length > 0) ? resCourses.data : [];
+                const cloudIds = new Set(cloudCourses.map(c => Number(c.course_id)));
+                const unsyncedLocalCourses = coursesTable.filter(c => !cloudIds.has(Number(c.course_id)));
+
+                if (unsyncedLocalCourses.length > 0) {
+                    for (const localC of unsyncedLocalCourses) {
+                        await uploadSingleCourseToCloud(localC);
+                    }
+                    const refreshCourses = await supabaseClient.from('courses').select('*');
+                    if (refreshCourses.data) cloudCourses = refreshCourses.data;
                 }
 
+                // 3. Ekstrak courses melalui Universal Metadata Engine
+                if (cloudCourses.length > 0) {
+                    coursesTable = cloudCourses.map(unpackCourseData);
+                } else {
+                    for (const initC of initialCoursesMock) {
+                        await uploadSingleCourseToCloud(initC);
+                    }
+                    coursesTable = initialCoursesMock.map(unpackCourseData);
+                }
+
+                // 4. Sinkronkan tabel lainnya
                 if (resUsers.data && resUsers.data.length > 0) usersTable = resUsers.data;
                 else { await supabaseClient.from('users').insert(initialUsersMock); usersTable = [...initialUsersMock]; }
-
-                // PENTING: Penggabungan data courses tanpa pernah mereset tema manual & token pengguna
-                if (resCourses.data && resCourses.data.length > 0) {
-                    coursesTable = resCourses.data.map(c => {
-                        const localSavedTheme = localStorage.getItem(`lms_theme_${c.course_id}`);
-                        const resolvedTheme = (c.theme && c.theme !== '') ? c.theme : (localSavedTheme || 'indigo');
-                        localStorage.setItem(`lms_theme_${c.course_id}`, resolvedTheme);
-
-                        const localSavedToken = localStorage.getItem(`lms_token_${c.course_id}`);
-                        const resolvedToken = (c.token_akses && c.token_akses !== '') ? c.token_akses : (localSavedToken || generateRandomToken('EDU'));
-                        localStorage.setItem(`lms_token_${c.course_id}`, resolvedToken);
-
-                        return {
-                            ...c,
-                            theme: resolvedTheme,
-                            token_akses: resolvedToken
-                        };
-                    });
-                } else {
-                    await supabaseClient.from('courses').insert(initialCoursesMock); 
-                    coursesTable = [...initialCoursesMock];
-                }
 
                 if (resSessions.data && resSessions.data.length > 0) sessionsTable = resSessions.data;
                 else { await supabaseClient.from('sessions').insert(initialSessionsMock); sessionsTable = [...initialSessionsMock]; }
@@ -413,11 +493,13 @@
                 if (resProg.data) userProgressTable = resProg.data;
 
                 saveLocalStorageData();
-                showToast('Sinkronisasi selesai & token kursus tersimpan aman!', 'success');
+                isCloudConnected = true;
+                if (!silent) showToast('Sinkronisasi cloud berhasil & data selaras!', 'success');
                 render();
             } catch (err) {
                 console.error('Error Sync Supabase:', err);
-                showToast('Gagal tarik data cloud: ' + (err.message || 'Periksa koneksi'), 'error');
+                isCloudConnected = false;
+                if (!silent) showToast('Gagal sinkron cloud: ' + (err.message || 'Periksa koneksi'), 'error');
             }
         }
 
@@ -426,30 +508,37 @@
             if (state.user.role === 'Guru') roleBadge = 'bg-indigo-50 text-indigo-700 border-indigo-200';
             if (state.user.role === 'Admin') roleBadge = 'bg-emerald-50 text-emerald-700 border-emerald-200';
 
+            const cloudBadge = isCloudConnected 
+                ? `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-pointer" onclick="manualSyncSupabase()" title="Terkoneksi ke Supabase Cloud. Klik untuk sync ulang."><span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Cloud Terhubung</span>`
+                : `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200 cursor-pointer" onclick="navigateTo('supabase_setup')" title="Mode Lokal. Klik untuk atur koneksi Supabase."><span class="w-2 h-2 rounded-full bg-amber-500"></span> Mode Offline / Lokal</span>`;
+
             return `
-                <nav class="bg-white border-b border-slate-200 sticky top-0 z-40 px-5 sm:px-8 py-3.5 flex justify-between items-center shadow-xs">
+                <nav class="bg-white border-b border-slate-200 sticky top-0 z-40 px-4 sm:px-8 py-3.5 flex justify-between items-center shadow-xs">
                     <div class="flex items-center gap-3 cursor-pointer select-none" onclick="navigateTo('dashboard')">
-                        <div class="w-9 h-9 bg-gradient-to-tr from-blue-700 to-indigo-600 text-white rounded-xl flex items-center justify-center text-xl shadow-md shadow-blue-200">
+                        <div class="w-10 h-10 bg-gradient-to-tr from-blue-700 via-indigo-600 to-emerald-500 text-white rounded-2xl flex items-center justify-center text-xl shadow-md shadow-indigo-100">
                             <i class="ph-bold ph-graduation-cap"></i>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="font-extrabold text-slate-800 text-lg sm:text-xl tracking-tight">RuruAlbernEdu LMS</span>
-                            <span class="text-xs px-2.5 py-0.5 rounded-full font-semibold border ${roleBadge}">
+                            <span class="text-xs px-2.5 py-0.5 rounded-full font-bold border ${roleBadge}">
                                 ${state.user.role}
                             </span>
                         </div>
                     </div>
                     
                     <div class="flex items-center gap-3">
-                        <div class="text-right hidden sm:block">
-                            <p class="text-sm font-bold text-slate-800 leading-tight">${state.user.nama_lengkap}</p>
-                            <p class="text-xs text-slate-500">${state.user.instansi || 'RuruAlbernEdu Institute'}</p>
+                        <div class="hidden md:block">
+                            ${cloudBadge}
                         </div>
-                        <div class="w-9 h-9 rounded-full bg-slate-100 border border-slate-300 text-slate-700 font-bold flex items-center justify-center text-sm shadow-xs">
+                        <div class="text-right hidden sm:block">
+                            <p class="text-sm font-extrabold text-slate-800 leading-tight">${state.user.nama_lengkap}</p>
+                            <p class="text-xs text-slate-500 font-medium truncate max-w-[220px]">${state.user.instansi || 'RuruAlbernEdu LMS'}</p>
+                        </div>
+                        <div class="w-9 h-9 rounded-full bg-slate-100 border border-slate-300 text-slate-700 font-extrabold flex items-center justify-center text-sm shadow-xs">
                             ${state.user.nama_lengkap.charAt(0)}
                         </div>
                         <div class="h-6 w-px bg-slate-200 mx-1"></div>
-                        <button onclick="handleLogout()" class="text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors flex items-center gap-1.5 border border-rose-200/60">
+                        <button onclick="handleLogout()" class="text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-xl text-sm font-bold transition flex items-center gap-1.5 border border-rose-200/60">
                             <i class="ph-bold ph-sign-out text-base"></i>
                             <span class="hidden sm:inline">Keluar</span>
                         </button>
@@ -460,13 +549,13 @@
 
         function getLoginHTML() {
             return `
-                <div class="flex-1 flex items-center justify-center bg-gradient-to-br from-slate-100 via-blue-50/50 to-slate-200 p-4 overflow-y-auto">
+                <div class="flex-1 flex items-center justify-center bg-gradient-to-br from-slate-100 via-blue-50/40 to-slate-200 p-4 overflow-y-auto">
                     <div class="bg-white p-7 sm:p-9 rounded-3xl shadow-xl w-full max-w-md border border-slate-200/80 text-center flex flex-col">
-                        <div class="w-16 h-16 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl shadow-lg shadow-blue-300/40">
+                        <div class="w-16 h-16 bg-gradient-to-tr from-blue-600 via-indigo-600 to-emerald-500 text-white rounded-2xl flex items-center justify-center mx-auto mb-4 text-3xl shadow-lg shadow-indigo-200">
                             <i class="ph-bold ph-graduation-cap"></i>
                         </div>
-                        <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-1">RuruAlbernEdu LMS</h1>
-                        <p class="text-sm text-slate-500 mb-6">Sistem Pembelajaran Terstruktur & Terpadu</p>
+                        <h1 class="text-2xl sm:text-3xl font-black text-slate-900 mb-1">RuruAlbernEdu LMS</h1>
+                        <p class="text-xs text-slate-500 mb-6">Sistem Pembelajaran Terstruktur & Terpadu Tanpa Batas Topik</p>
                         
                         <form onsubmit="handleLoginSubmit(event)" class="text-left space-y-4">
                             <div>
@@ -475,7 +564,7 @@
                                     <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                                         <i class="ph-bold ph-envelope-simple text-lg"></i>
                                     </div>
-                                    <input id="login-email" type="email" required class="w-full border border-slate-300 rounded-xl pl-10 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="admin@lms.com / guru@lms.com / siswa@lms.com">
+                                    <input id="login-email" type="email" required class="w-full border border-slate-300 rounded-xl pl-10 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition" placeholder="guru@lms.com / admin@lms.com / siswa@lms.com">
                                 </div>
                             </div>
                             
@@ -485,22 +574,22 @@
                                     <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                                         <i class="ph-bold ph-lock-key text-lg"></i>
                                     </div>
-                                    <input id="login-password" type="password" required class="w-full border border-slate-300 rounded-xl pl-10 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="••••••••">
+                                    <input id="login-password" type="password" required class="w-full border border-slate-300 rounded-xl pl-10 pr-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition" placeholder="••••••••">
                                 </div>
                             </div>
 
-                            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 mt-2">
+                            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2 mt-2">
                                 <span>Masuk ke Akun</span> <i class="ph-bold ph-arrow-right"></i>
                             </button>
                         </form>
 
                         <div class="mt-6 pt-5 border-t border-slate-100 flex flex-col gap-2.5">
                             <button type="button" onclick="manualSyncSupabase()" class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-xs">
-                                <i class="ph-bold ph-cloud-arrow-down text-lg"></i>
+                                <i class="ph-bold ph-arrows-clockwise text-lg"></i>
                                 <span>Tarik Data dari Cloud (Sync)</span>
                             </button>
 
-                            <button type="button" onclick="navigateTo('supabase_setup')" class="text-xs text-slate-500 hover:text-blue-600 font-semibold py-2 transition flex items-center justify-center gap-1.5">
+                            <button type="button" onclick="navigateTo('supabase_setup')" class="text-xs text-slate-500 hover:text-indigo-600 font-semibold py-2 transition flex items-center justify-center gap-1.5">
                                 <i class="ph-fill ph-database"></i> Konfigurasi Database Supabase
                             </button>
                         </div>
@@ -522,7 +611,7 @@
                             </div>
                             <div>
                                 <h2 class="text-2xl font-bold text-slate-800">Konfigurasi Supabase Cloud</h2>
-                                <p class="text-xs text-slate-500">Hubungkan LMS dengan tabel cloud Supabase Anda agar data tersinkron antar-perangkat.</p>
+                                <p class="text-xs text-slate-500">Hubungkan LMS dengan cloud Supabase. Berkat Universal Metadata Engine, tidak perlu setup kolom lagi!</p>
                             </div>
                         </div>
 
@@ -533,31 +622,26 @@
                             </div>
 
                             <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Supabase Anon Key</label>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Supabase Anon Key (Bebas Copy Paste)</label>
                                 <textarea id="sb-input-key" required rows="3" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs font-mono text-slate-800 break-all focus:ring-2 focus:ring-emerald-500 outline-none transition resize-none custom-scrollbar" placeholder="Tempelkan Anon Key JWT Supabase Anda...">${currentKey}</textarea>
-                                <p class="text-[11px] text-slate-400 mt-1">Gunakan Ctrl + V atau klik kanan Paste. Kolom textarea ini tanpa batas karakter.</p>
+                                <p class="text-[11px] text-slate-400 mt-1">Area textarea tanpa batasan karakter. Anda dapat menggunakan Ctrl + V atau klik kanan Paste.</p>
                             </div>
 
                             <div class="bg-slate-900 rounded-2xl p-4 text-slate-200 border border-slate-800">
                                 <div class="flex justify-between items-center mb-2">
                                     <span class="text-xs font-mono font-bold text-emerald-400 flex items-center gap-1.5">
-                                        <i class="ph-bold ph-terminal-window"></i> Skrip SQL Supabase (Run without RLS)
+                                        <i class="ph-bold ph-terminal-window"></i> Skrip Dasar Tabel Supabase (Hanya Sekali Setup)
                                     </span>
                                     <button type="button" onclick="copySqlScript()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 transition">
                                         Salin SQL
                                     </button>
                                 </div>
-                                <textarea id="sql-script-area" readonly rows="7" class="w-full bg-slate-950 text-emerald-400 p-3 rounded-xl text-xs font-mono leading-relaxed outline-none resize-none custom-scrollbar">
+                                <textarea id="sql-script-area" readonly rows="6" class="w-full bg-slate-950 text-emerald-400 p-3 rounded-xl text-xs font-mono leading-relaxed outline-none resize-none custom-scrollbar">
 CREATE TABLE IF NOT EXISTS users (user_id bigint primary key, nama_lengkap text, email text, password text, role text, instansi text, ttd_url text);
-CREATE TABLE IF NOT EXISTS courses (course_id bigint primary key, guru_id bigint, judul_kursus text, deskripsi_singkat text, theme text, token_akses text);
+CREATE TABLE IF NOT EXISTS courses (course_id bigint primary key, guru_id bigint, judul_kursus text, deskripsi_singkat text);
 CREATE TABLE IF NOT EXISTS sessions (session_id bigint primary key, course_id bigint, urutan_sesi integer, deskripsi_modul text, tujuan_belajar text, link_video text, bahan_diskusi text, kkm_kuis integer);
 CREATE TABLE IF NOT EXISTS quizzes (quiz_id bigint primary key, session_id bigint, pertanyaan text, pilihan_ganda jsonb, jawaban_benar integer);
 CREATE TABLE IF NOT EXISTS user_progress (progress_id bigint primary key, user_id bigint, session_id bigint, skor_kuis integer, status_sesi text);
-
-ALTER TABLE courses ADD COLUMN IF NOT EXISTS theme text;
-ALTER TABLE courses ADD COLUMN IF NOT EXISTS token_akses text;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS instansi text;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS ttd_url text;
 
 ALTER TABLE users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE courses DISABLE ROW LEVEL SECURITY;
@@ -569,11 +653,11 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
 
                             <div class="flex gap-3 pt-3">
                                 <button type="button" onclick="navigateTo(state.user ? 'dashboard' : 'login')" class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2.5 rounded-xl transition text-sm">
-                                    Batal / Kembali
+                                    Kembali
                                 </button>
                                 <button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition text-sm shadow-md flex items-center justify-center gap-2">
                                     <i class="ph-bold ph-floppy-disk"></i>
-                                    <span>Simpan / Daftarkan</span>
+                                    <span>Simpan & Sinkronkan</span>
                                 </button>
                             </div>
                         </form>
@@ -601,12 +685,118 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
 
             localStorage.setItem('SUPABASE_URL', url);
             localStorage.setItem('SUPABASE_ANON_KEY', key);
-            showToast('Pengaturan Supabase tersimpan. Menghubungkan...', 'info');
+            showToast('Konfigurasi disimpan. Menghubungkan ke Supabase...', 'info');
 
             await manualSyncSupabase();
             state.currentView = state.user ? 'dashboard' : 'login';
             render();
         };
+
+        function getTeacherDashboardHTML() {
+            const myCourses = coursesTable.filter(c => Number(c.guru_id) === Number(state.user.user_id) || state.user.role === 'Admin');
+
+            return `
+                <div class="flex-1 bg-slate-50 overflow-y-auto custom-scrollbar p-5 sm:p-8">
+                    <div class="max-w-6xl mx-auto space-y-6">
+                        <!-- Header Guru -->
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 sm:p-7 rounded-3xl border border-slate-200/80 shadow-xs">
+                            <div>
+                                <h1 class="text-2xl font-black text-slate-900">Ruang Instruktur Pembelajaran</h1>
+                                <p class="text-xs sm:text-sm text-slate-500 mt-0.5">Kelola kurikulum tak terbatas, silabus, token izin masuk topik, dan sertifikat resmi.</p>
+                            </div>
+                            <div class="flex flex-wrap gap-2.5 w-full md:w-auto">
+                                <button onclick="manualSyncSupabase()" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-xs transition flex items-center justify-center gap-2 text-xs sm:text-sm">
+                                    <i class="ph-bold ph-arrows-clockwise text-base"></i> Tarik Data (Sync)
+                                </button>
+                                <button onclick="openBulkImportModal()" class="flex-1 sm:flex-none bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-xs transition flex items-center justify-center gap-2 text-xs sm:text-sm">
+                                    <i class="ph-bold ph-file-arrow-up text-base"></i> Upload Siswa Massal
+                                </button>
+                                <button onclick="navigateTo('setting_sertifikat')" class="flex-1 sm:flex-none bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 text-xs sm:text-sm">
+                                    <i class="ph-bold ph-certificate text-base"></i> Pengaturan Sertifikat
+                                </button>
+                                <button onclick="navigateTo('form_topik')" class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-xs transition flex items-center justify-center gap-2 text-xs sm:text-sm">
+                                    <i class="ph-bold ph-plus-circle text-base"></i> Buat Topik Baru
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Grid Kartu Topik Guru Tak Terbatas -->
+                        <div>
+                            <div class="flex justify-between items-center mb-4">
+                                <h2 class="text-lg font-extrabold text-slate-800 flex items-center gap-2">
+                                    <i class="ph-fill ph-chalkboard-teacher text-indigo-600"></i> Topik Pembelajaran Anda
+                                </h2>
+                                <span class="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full">${myCourses.length} Topik Aktif (Unlimited)</span>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                ${myCourses.map(c => {
+                                    const sessCount = DB.getCourseSessions(c.course_id).length;
+                                    const themeCfg = getThemeConfig(c.theme);
+                                    const token = c.token_akses || 'TIDAK-ADA';
+                                    return `
+                                        <div class="group bg-white rounded-3xl border ${themeCfg.cardAccent} p-5 shadow-xs flex flex-col justify-between hover:shadow-lg transition-all duration-200 relative overflow-hidden">
+                                            <div class="h-1.5 w-full bg-gradient-to-r ${themeCfg.gradient} absolute top-0 left-0"></div>
+
+                                            <div>
+                                                <div class="flex justify-between items-start mb-3 pt-1">
+                                                    <div class="w-10 h-10 ${themeCfg.iconBg} rounded-2xl flex items-center justify-center text-xl shadow-xs">
+                                                        <i class="ph-fill ph-book-open"></i>
+                                                    </div>
+                                                    <div class="flex items-center gap-1.5">
+                                                        <button onclick="openChangeThemeModal(${c.course_id})" class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full border ${themeCfg.badgeBg} hover:opacity-80 transition" title="Ganti Tema Warna">
+                                                            <i class="ph-bold ph-palette"></i>
+                                                            <span>${themeCfg.nama}</span>
+                                                        </button>
+                                                        <button onclick="openDeleteTopicConfirm(${c.course_id})" class="p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Hapus Topik">
+                                                            <i class="ph-bold ph-trash text-sm"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <h3 class="font-extrabold text-slate-900 text-lg mb-1 leading-snug">${c.judul_kursus}</h3>
+                                                <p class="text-xs text-slate-500 mb-3 line-clamp-2 leading-relaxed">${c.deskripsi_singkat}</p>
+
+                                                <div class="mb-4 bg-slate-50 border border-slate-200/80 rounded-2xl p-2.5 flex items-center justify-between">
+                                                    <div class="flex items-center gap-1.5 min-w-0">
+                                                        <i class="ph-bold ph-key text-amber-500 text-sm shrink-0"></i>
+                                                        <span class="text-[11px] font-bold text-slate-500 uppercase">Token:</span>
+                                                        <span class="font-mono text-xs font-extrabold text-slate-800 tracking-wider truncate">${token}</span>
+                                                    </div>
+                                                    <button onclick="copyToClipboard('${token}', 'Token ${token} disalin! Berikan kepada siswa.')" class="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 p-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1" title="Salin Token">
+                                                        <i class="ph-bold ph-copy text-sm"></i>
+                                                        <span class="text-[11px]">Salin</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+                                                <span class="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+                                                    <i class="ph-bold ph-stack"></i> ${sessCount} Sesi Pembelajaran
+                                                </span>
+                                                <div class="flex gap-2">
+                                                    <button onclick="openEditTopicModal(${c.course_id})" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+                                                        Edit
+                                                    </button>
+                                                    <button onclick="navigateTo('course_guru', {courseId: ${c.course_id}})" class="${themeCfg.btnLight} font-bold px-3.5 py-1.5 rounded-xl text-xs transition flex items-center gap-1.5 shadow-2xs">
+                                                        <span>Kelola</span> <i class="ph-bold ph-arrow-right"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                                ${myCourses.length === 0 ? `
+                                    <div class="col-span-full bg-white p-10 rounded-3xl border border-dashed border-slate-300 text-center text-slate-400">
+                                        Belum ada topik materi. Silakan klik "Buat Topik Baru" di atas.
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
 
         function getAdminDashboardHTML() {
             const totalSiswa = usersTable.filter(u => u.role === 'Siswa').length;
@@ -619,65 +809,65 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                         <!-- Banner Utama Admin -->
                         <div class="bg-gradient-to-r from-emerald-800 via-teal-800 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                             <div>
-                                <h1 class="text-2xl sm:text-3xl font-extrabold mb-1">Portal Administrator</h1>
-                                <p class="text-teal-100 text-sm">Kelola pengguna, pantau aktivitas kursus, token akses topik, dan atur materi secara terpusat.</p>
+                                <h1 class="text-2xl sm:text-3xl font-black mb-1">Portal Administrator</h1>
+                                <p class="text-teal-100 text-xs sm:text-sm">Kelola pengguna, topik tanpa batas kolom, token akses, dan sinkronisasi real-time.</p>
                             </div>
                             <div class="flex flex-wrap gap-2.5 w-full md:w-auto">
-                                <button onclick="manualSyncSupabase()" class="flex-1 sm:flex-none bg-teal-600/90 hover:bg-teal-600 text-white border border-teal-400/40 font-bold py-2.5 px-4 rounded-xl shadow transition flex items-center justify-center gap-2 text-sm">
-                                    <i class="ph-bold ph-cloud-arrow-down text-lg"></i> Tarik Data (Sync)
+                                <button onclick="manualSyncSupabase()" class="flex-1 sm:flex-none bg-teal-600/90 hover:bg-teal-600 text-white border border-teal-400/40 font-bold py-2.5 px-4 rounded-xl shadow transition flex items-center justify-center gap-2 text-xs sm:text-sm">
+                                    <i class="ph-bold ph-arrows-clockwise text-base"></i> Tarik Data (Sync)
                                 </button>
-                                <button onclick="openBulkImportModal()" class="flex-1 sm:flex-none bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-4 rounded-xl shadow transition flex items-center justify-center gap-2 text-sm">
-                                    <i class="ph-bold ph-file-arrow-up text-lg"></i> Upload Siswa Massal
+                                <button onclick="openBulkImportModal()" class="flex-1 sm:flex-none bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-4 rounded-xl shadow transition flex items-center justify-center gap-2 text-xs sm:text-sm">
+                                    <i class="ph-bold ph-file-arrow-up text-base"></i> Upload Siswa Massal
                                 </button>
-                                <button onclick="navigateTo('admin_users')" class="flex-1 sm:flex-none bg-white text-emerald-900 hover:bg-teal-50 font-bold py-2.5 px-4 rounded-xl shadow transition flex items-center justify-center gap-2 text-sm">
-                                    <i class="ph-bold ph-users-three text-lg"></i> Manajemen Pengguna
+                                <button onclick="navigateTo('admin_users')" class="flex-1 sm:flex-none bg-white text-emerald-900 hover:bg-teal-50 font-bold py-2.5 px-4 rounded-xl shadow transition flex items-center justify-center gap-2 text-xs sm:text-sm">
+                                    <i class="ph-bold ph-users-three text-base"></i> Manajemen Pengguna
                                 </button>
-                                <button onclick="navigateTo('form_topik')" class="flex-1 sm:flex-none bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-4 rounded-xl shadow transition flex items-center justify-center gap-2 text-sm">
-                                    <i class="ph-bold ph-plus-circle text-lg"></i> Buat Topik Baru
+                                <button onclick="navigateTo('form_topik')" class="flex-1 sm:flex-none bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-4 rounded-xl shadow transition flex items-center justify-center gap-2 text-xs sm:text-sm">
+                                    <i class="ph-bold ph-plus-circle text-base"></i> Buat Topik Baru
                                 </button>
                             </div>
                         </div>
 
                         <!-- Ringkasan Statistik -->
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                            <div class="bg-white p-5 rounded-2xl shadow-xs border border-slate-200 flex items-center gap-4">
+                            <div class="bg-white p-5 rounded-3xl shadow-xs border border-slate-200 flex items-center gap-4">
                                 <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center text-2xl shrink-0">
                                     <i class="ph-fill ph-student"></i>
                                 </div>
                                 <div>
-                                    <span class="text-xs font-semibold text-slate-500 uppercase">Total Siswa</span>
-                                    <p class="text-2xl font-bold text-slate-900">${totalSiswa} Akun</p>
+                                    <span class="text-xs font-bold text-slate-500 uppercase">Total Siswa</span>
+                                    <p class="text-2xl font-black text-slate-900">${totalSiswa} Akun</p>
                                 </div>
                             </div>
                             
-                            <div class="bg-white p-5 rounded-2xl shadow-xs border border-slate-200 flex items-center gap-4">
+                            <div class="bg-white p-5 rounded-3xl shadow-xs border border-slate-200 flex items-center gap-4">
                                 <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl shrink-0">
                                     <i class="ph-fill ph-chalkboard-teacher"></i>
                                 </div>
                                 <div>
-                                    <span class="text-xs font-semibold text-slate-500 uppercase">Total Guru</span>
-                                    <p class="text-2xl font-bold text-slate-900">${totalGuru} Akun</p>
+                                    <span class="text-xs font-bold text-slate-500 uppercase">Total Guru</span>
+                                    <p class="text-2xl font-black text-slate-900">${totalGuru} Akun</p>
                                 </div>
                             </div>
 
-                            <div class="bg-white p-5 rounded-2xl shadow-xs border border-slate-200 flex items-center gap-4">
+                            <div class="bg-white p-5 rounded-3xl shadow-xs border border-slate-200 flex items-center gap-4">
                                 <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center text-2xl shrink-0">
                                     <i class="ph-fill ph-books"></i>
                                 </div>
                                 <div>
-                                    <span class="text-xs font-semibold text-slate-500 uppercase">Total Topik</span>
-                                    <p class="text-2xl font-bold text-slate-900">${totalTopik} Topik</p>
+                                    <span class="text-xs font-bold text-slate-500 uppercase">Total Topik</span>
+                                    <p class="text-2xl font-black text-slate-900">${totalTopik} Topik</p>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Rekap Seluruh Topik & Token Akses -->
-                        <div class="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+                        <div class="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
                             <div class="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50/70">
                                 <h3 class="font-bold text-slate-800 flex items-center gap-2">
                                     <i class="ph-fill ph-book-open-text text-emerald-600"></i> Rekap Seluruh Topik & Token Akses
                                 </h3>
-                                <span class="text-xs font-semibold bg-slate-200 text-slate-700 px-3 py-1 rounded-full">${coursesTable.length} Topik Tersedia</span>
+                                <span class="text-xs font-bold bg-slate-200 text-slate-700 px-3 py-1 rounded-full">${coursesTable.length} Topik Tersedia</span>
                             </div>
 
                             <div class="overflow-x-auto">
@@ -721,21 +911,21 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                                                     <td class="py-3.5 px-5 text-slate-600">${instructor ? instructor.nama_lengkap : 'Admin'}</td>
                                                     <td class="py-3.5 px-5 text-center font-bold text-slate-700">${sessions.length}</td>
                                                     <td class="py-3.5 px-5 text-center">
-                                                        <div class="inline-flex items-center gap-2">
+                                                        <div class="inline-flex items-center gap-1.5">
                                                             <button onclick="openChangeThemeModal(${c.course_id})" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs transition" title="Ubah Tema Warna">
                                                                 <i class="ph-bold ph-palette text-sm"></i>
                                                             </button>
-                                                            <button onclick="navigateTo('course_guru', {courseId: ${c.course_id}})" class="bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 border border-emerald-200 font-semibold px-3 py-1.5 rounded-lg text-xs transition">
-                                                                Kelola Sesi & Kuis
+                                                            <button onclick="openEditTopicModal(${c.course_id})" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs transition" title="Edit Topik">
+                                                                <i class="ph-bold ph-pencil-simple text-sm"></i>
+                                                            </button>
+                                                            <button onclick="navigateTo('course_guru', {courseId: ${c.course_id}})" class="bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-700 border border-emerald-200 font-bold px-3 py-1.5 rounded-lg text-xs transition">
+                                                                Kelola
                                                             </button>
                                                         </div>
                                                     </td>
                                                 </tr>
                                             `;
                                         }).join('')}
-                                        ${coursesTable.length === 0 ? `
-                                            <tr><td colspan="7" class="py-10 text-center text-slate-400">Belum ada topik pembelajaran.</td></tr>
-                                        ` : ''}
                                     </tbody>
                                 </table>
                             </div>
@@ -745,616 +935,94 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
             `;
         }
 
-        function getAdminManageUsersHTML() {
-            return `
-                <div class="flex-1 bg-slate-50 overflow-y-auto custom-scrollbar p-5 sm:p-8">
-                    <div class="max-w-5xl mx-auto space-y-6">
-                        <div class="flex items-center justify-between">
-                            <button onclick="navigateTo('dashboard')" class="text-emerald-700 hover:underline flex items-center gap-1.5 font-bold text-sm">
-                                <i class="ph-bold ph-arrow-left"></i> Kembali ke Dasbor Admin
-                            </button>
-                            <button onclick="openBulkImportModal()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-xl shadow-xs transition text-xs flex items-center gap-2">
-                                <i class="ph-bold ph-file-arrow-up text-base"></i> Upload Siswa Massal (.CSV / Paste)
-                            </button>
-                        </div>
-
-                        <!-- Registrasi Pengguna Baru -->
-                        <div class="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
-                            <div class="bg-slate-900 p-5 text-white flex justify-between items-center">
-                                <div>
-                                    <h2 class="text-xl font-bold flex items-center gap-2">
-                                        <i class="ph-bold ph-user-plus text-emerald-400"></i> Registrasi Pengguna Baru (Manual)
-                                    </h2>
-                                    <p class="text-xs text-slate-400">Buat akun satuan untuk Siswa, Guru, atau Administrator baru.</p>
-                                </div>
-                            </div>
-
-                            <form onsubmit="handleCreateUser(event)" class="p-6 space-y-4">
-                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <div>
-                                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Peran Akun</label>
-                                        <select id="new-user-role" required class="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
-                                            <option value="Siswa">Siswa</option>
-                                            <option value="Guru">Guru / Instruktur</option>
-                                            <option value="Admin">Administrator</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nama Lengkap</label>
-                                        <input id="new-user-name" type="text" required placeholder="cth: Siti Rahma, S.T" class="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Email</label>
-                                        <input id="new-user-email" type="email" required placeholder="rahma@lms.com" class="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Kata Sandi</label>
-                                        <input id="new-user-pass" type="text" required value="123" class="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none font-mono">
-                                    </div>
-                                </div>
-                                <div class="flex justify-end pt-2">
-                                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl shadow transition text-sm flex items-center gap-2">
-                                        <i class="ph-bold ph-floppy-disk"></i> Simpan / Daftarkan
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-
-                        <!-- Daftar Pengguna -->
-                        <div class="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
-                            <div class="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50/70">
-                                <h3 class="font-bold text-slate-800 flex items-center gap-2">
-                                    <i class="ph-fill ph-users text-slate-500"></i> Seluruh Pengguna Terdaftar
-                                </h3>
-                                <span class="text-xs font-bold bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full">${usersTable.length} Akun Aktif</span>
-                            </div>
-
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-left border-collapse text-sm">
-                                    <thead class="bg-slate-50 text-xs font-bold text-slate-500 uppercase border-b border-slate-200">
-                                        <tr>
-                                            <th class="p-4">ID</th>
-                                            <th class="p-4">Nama Pengguna</th>
-                                            <th class="p-4">Email</th>
-                                            <th class="p-4">Peran (Role)</th>
-                                            <th class="p-4">Instansi</th>
-                                            <th class="p-4 text-center">Aksi</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-100">
-                                        ${usersTable.map(u => `
-                                            <tr class="hover:bg-slate-50/80 transition-colors">
-                                                <td class="p-4 font-mono text-xs text-slate-400">#${u.user_id}</td>
-                                                <td class="p-4 font-bold text-slate-800">${u.nama_lengkap}</td>
-                                                <td class="p-4 text-slate-600">${u.email}</td>
-                                                <td class="p-4">
-                                                    <span class="px-2.5 py-1 rounded-full text-xs font-bold ${
-                                                        u.role === 'Admin' ? 'bg-emerald-100 text-emerald-700' :
-                                                        u.role === 'Guru' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'
-                                                    }">
-                                                        ${u.role}
-                                                    </span>
-                                                </td>
-                                                <td class="p-4 text-xs text-slate-500">${u.instansi || '-'}</td>
-                                                <td class="p-4 text-center">
-                                                    ${u.user_id === state.user.user_id ? '<span class="text-xs text-slate-400 font-medium">Akun Anda</span>' : `
-                                                        <button onclick="handleDeleteUser(${u.user_id})" class="text-rose-500 hover:text-rose-700 p-2 rounded-lg hover:bg-rose-50 transition" title="Hapus Pengguna">
-                                                            <i class="ph-bold ph-trash text-base"></i>
-                                                        </button>
-                                                    `}
-                                                </td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        window.handleCreateUser = async function(e) {
-            e.preventDefault();
-            const role = document.getElementById('new-user-role').value;
-            const name = document.getElementById('new-user-name').value.trim();
-            const email = document.getElementById('new-user-email').value.trim();
-            const password = document.getElementById('new-user-pass').value.trim();
-
-            if (usersTable.some(u => u.email.toLowerCase() === email.toLowerCase())) {
-                showToast('Email sudah digunakan akun lain!', 'error');
-                return;
-            }
-
-            const maxId = usersTable.reduce((max, u) => Math.max(max, Number(u.user_id) || 0), 0);
-            const newUser = {
-                user_id: maxId + 1,
-                nama_lengkap: name,
-                email: email,
-                password: password,
-                role: role,
-                instansi: 'RuruAlbernEdu LMS',
-                ttd_url: ''
-            };
-
-            usersTable.push(newUser);
-            saveLocalStorageData();
-
-            if (supabaseClient) {
-                try {
-                    await supabaseClient.from('users').insert([newUser]);
-                } catch (err) {
-                    console.warn('Gagal sync user ke Supabase:', err);
-                }
-            }
-
-            showToast(`Pengguna baru (${role}) berhasil didaftarkan!`, 'success');
-            render();
-        };
-
-        window.handleDeleteUser = async function(userId) {
-            const userIndex = usersTable.findIndex(u => Number(u.user_id) === Number(userId));
-            if (userIndex !== -1) {
-                const u = usersTable[userIndex];
-                usersTable.splice(userIndex, 1);
-                saveLocalStorageData();
-
-                if (supabaseClient) {
-                    try {
-                        await supabaseClient.from('users').delete().eq('user_id', userId);
-                    } catch (e) {
-                        console.warn('Gagal delete di Supabase:', e);
-                    }
-                }
-                showToast(`Akun ${u.nama_lengkap} berhasil dihapus.`, 'info');
-                render();
-            }
-        };
-
-        function getTeacherDashboardHTML() {
-            const myCourses = coursesTable.filter(c => Number(c.guru_id) === Number(state.user.user_id) || state.user.role === 'Admin');
-
+        function getStudentDashboardHTML() {
             return `
                 <div class="flex-1 bg-slate-50 overflow-y-auto custom-scrollbar p-5 sm:p-8">
                     <div class="max-w-6xl mx-auto space-y-6">
-                        <!-- Header Guru -->
-                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
+                        <!-- Hero Banner Siswa -->
+                        <div class="bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                             <div>
-                                <h1 class="text-2xl font-extrabold text-slate-800">Ruang Instruktur Pembelajaran</h1>
-                                <p class="text-sm text-slate-500">Kelola kurikulum, silabus, token izin masuk topik, dan tanda tangan digital sertifikat siswa.</p>
+                                <span class="bg-blue-400/30 text-blue-100 text-xs font-bold px-3 py-1 rounded-full uppercase">Selamat Belajar</span>
+                                <h1 class="text-2xl sm:text-3xl font-black mt-2">Halo, ${state.user.nama_lengkap}! 🚀</h1>
+                                <p class="text-blue-100 text-xs sm:text-sm mt-1">Masukkan token dari guru untuk membuka topik pembelajaran dan raih sertifikat resmi.</p>
                             </div>
-                            <div class="flex flex-wrap gap-2.5 w-full md:w-auto">
-                                <button onclick="manualSyncSupabase()" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-xs transition flex items-center justify-center gap-2 text-sm">
-                                    <i class="ph-bold ph-cloud-arrow-down text-base"></i> Tarik Data (Sync)
-                                </button>
-                                <button onclick="openBulkImportModal()" class="flex-1 sm:flex-none bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-xs transition flex items-center justify-center gap-2 text-sm">
-                                    <i class="ph-bold ph-file-arrow-up text-base"></i> Upload Siswa Massal
-                                </button>
-                                <button onclick="navigateTo('setting_sertifikat')" class="flex-1 sm:flex-none bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 text-sm">
-                                    <i class="ph-bold ph-certificate text-base"></i> Pengaturan Sertifikat
-                                </button>
-                                <button onclick="navigateTo('form_topik')" class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-xs transition flex items-center justify-center gap-2 text-sm">
-                                    <i class="ph-bold ph-plus-circle text-base"></i> Buat Topik Baru
-                                </button>
-                            </div>
+                            <button onclick="manualSyncSupabase()" class="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold py-2.5 px-4 rounded-xl transition flex items-center gap-2 text-xs sm:text-sm shrink-0">
+                                <i class="ph-bold ph-arrows-clockwise text-base"></i> Tarik Data (Sync)
+                            </button>
                         </div>
 
-                        <!-- Grid Kursus Guru dengan Desain Theme Dinamis & Token Akses -->
+                        <!-- Topik Kursus Tersedia -->
                         <div>
                             <div class="flex justify-between items-center mb-4">
-                                <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                    <i class="ph-fill ph-chalkboard-teacher text-indigo-600"></i> Topik Pembelajaran Anda
+                                <h2 class="text-lg font-extrabold text-slate-800 flex items-center gap-2">
+                                    <i class="ph-fill ph-books text-blue-600"></i> Topik Kursus Pembelajaran
                                 </h2>
-                                <span class="text-xs text-slate-500 font-medium">${myCourses.length} Topik Aktif</span>
+                                <span class="text-xs font-bold text-slate-500">${coursesTable.length} Topik Tersedia</span>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                                ${myCourses.map(c => {
-                                    const sessCount = DB.getCourseSessions(c.course_id).length;
+                                ${coursesTable.map(c => {
+                                    const isUnlocked = DB.isCourseUnlockedForStudent(state.user.user_id, c.course_id);
+                                    const pct = isUnlocked ? DB.getCourseProgressPercent(state.user.user_id, c.course_id) : 0;
+                                    const instructor = usersTable.find(u => Number(u.user_id) === Number(c.guru_id));
                                     const themeCfg = getThemeConfig(c.theme);
-                                    const token = c.token_akses || 'TIDAK-ADA';
+
                                     return `
                                         <div class="group bg-white rounded-3xl border ${themeCfg.cardAccent} p-5 shadow-xs flex flex-col justify-between hover:shadow-lg transition-all duration-200 relative overflow-hidden">
-                                            <!-- Aksen strip gradien di atas kartu -->
                                             <div class="h-1.5 w-full bg-gradient-to-r ${themeCfg.gradient} absolute top-0 left-0"></div>
 
                                             <div>
                                                 <div class="flex justify-between items-start mb-3 pt-1">
-                                                    <div class="w-10 h-10 ${themeCfg.iconBg} rounded-xl flex items-center justify-center text-xl shadow-xs">
-                                                        <i class="ph-fill ph-book-open"></i>
-                                                    </div>
-                                                    <!-- Tombol Ganti Tema Cepat -->
-                                                    <button onclick="openChangeThemeModal(${c.course_id})" class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${themeCfg.badgeBg} hover:opacity-80 transition" title="Klik untuk mengubah tema warna">
-                                                        <i class="ph-bold ph-palette text-sm"></i>
-                                                        <span>${themeCfg.nama}</span>
-                                                    </button>
+                                                    <span class="text-[11px] font-bold ${themeCfg.badgeBg} px-2.5 py-1 rounded-md">Topik #${c.course_id}</span>
+                                                    
+                                                    ${isUnlocked ? `
+                                                        <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                                            <i class="ph-bold ph-lock-key-open"></i> Terbuka (${pct}%)
+                                                        </span>
+                                                    ` : `
+                                                        <span class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                                                            <i class="ph-bold ph-lock-key"></i> Terkunci Token
+                                                        </span>
+                                                    `}
                                                 </div>
 
-                                                <h3 class="font-bold text-slate-900 text-lg mb-1 leading-snug">${c.judul_kursus}</h3>
+                                                <h3 class="font-extrabold text-slate-900 text-base mb-1 leading-snug">${c.judul_kursus}</h3>
                                                 <p class="text-xs text-slate-500 mb-3 line-clamp-2 leading-relaxed">${c.deskripsi_singkat}</p>
-
-                                                <!-- Baris Token Akses Topik -->
-                                                <div class="mb-4 bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 flex items-center justify-between">
-                                                    <div class="flex items-center gap-1.5 min-w-0">
-                                                        <i class="ph-bold ph-key text-amber-500 text-sm shrink-0"></i>
-                                                        <span class="text-[11px] font-bold text-slate-500 uppercase">Token:</span>
-                                                        <span class="font-mono text-xs font-extrabold text-slate-800 tracking-wider truncate">${token}</span>
-                                                    </div>
-                                                    <button onclick="copyToClipboard('${token}', 'Token ${token} disalin! Berikan kepada siswa.')" class="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 p-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1" title="Salin Token untuk Siswa">
-                                                        <i class="ph-bold ph-copy text-sm"></i>
-                                                        <span class="text-[11px]">Salin</span>
-                                                    </button>
-                                                </div>
+                                                <p class="text-xs text-slate-400 mb-4 flex items-center gap-1">
+                                                    <i class="ph-bold ph-chalkboard-teacher text-indigo-500"></i> Guru: ${instructor ? instructor.nama_lengkap : 'Instruktur Ahli'}
+                                                </p>
                                             </div>
 
-                                            <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
-                                                <span class="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
-                                                    <i class="ph-bold ph-stack"></i> ${sessCount} Sesi Pembelajaran
-                                                </span>
-                                                <button onclick="navigateTo('course_guru', {courseId: ${c.course_id}})" class="${themeCfg.btnLight} font-bold px-3.5 py-1.5 rounded-xl text-xs transition flex items-center gap-1.5 shadow-2xs">
-                                                    <span>Kelola</span> <i class="ph-bold ph-arrow-right"></i>
-                                                </button>
+                                            <div>
+                                                ${isUnlocked ? `
+                                                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden mb-3">
+                                                        <div class="bg-gradient-to-r ${themeCfg.gradient} h-full rounded-full transition-all duration-300" style="width: ${pct}%"></div>
+                                                    </div>
+                                                    <button onclick="navigateTo('course_siswa', {courseId: ${c.course_id}})" class="w-full ${themeCfg.btnBg} font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-xs">
+                                                        <span>Buka Materi Silabus</span> <i class="ph-bold ph-arrow-right"></i>
+                                                    </button>
+                                                ` : `
+                                                    <div class="bg-amber-50/80 border border-amber-200 rounded-xl p-2.5 mb-3 flex items-center justify-between text-xs text-amber-800">
+                                                        <span class="font-medium flex items-center gap-1.5">
+                                                            <i class="ph-bold ph-shield-check text-base text-amber-600"></i> Memerlukan Izin Masuk
+                                                        </span>
+                                                        <span class="text-[10px] font-bold bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-md">Token Guru</span>
+                                                    </div>
+                                                    <button onclick="promptCourseTokenModal(${c.course_id})" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-xs">
+                                                        <i class="ph-bold ph-key"></i>
+                                                        <span>Masukkan Token Masuk</span>
+                                                    </button>
+                                                `}
                                             </div>
                                         </div>
                                     `;
                                 }).join('')}
-                                ${myCourses.length === 0 ? `
-                                    <div class="col-span-full bg-white p-8 rounded-2xl border border-dashed border-slate-300 text-center text-slate-400">
-                                        Belum ada topik materi. Silakan klik "Buat Topik Baru".
-                                    </div>
-                                ` : ''}
                             </div>
                         </div>
                     </div>
                 </div>
             `;
         }
-
-        window.openChangeThemeModal = function(courseId) {
-            const course = coursesTable.find(c => Number(c.course_id) === Number(courseId));
-            if (!course) return;
-
-            const currentTheme = course.theme || 'indigo';
-
-            modalContainer.innerHTML = `
-                <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 fade-in">
-                    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-100">
-                        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                            <h3 class="text-lg font-extrabold text-slate-800 flex items-center gap-2">
-                                <i class="ph-bold ph-palette text-indigo-600 text-xl"></i>
-                                <span>Ubah Tema Kartu Topik</span>
-                            </h3>
-                            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700 text-2xl font-bold leading-none">&times;</button>
-                        </div>
-
-                        <p class="text-xs text-slate-500 mb-4">Pilih nuansa warna kartu pembelajaran untuk: <strong>${course.judul_kursus}</strong></p>
-
-                        <div class="grid grid-cols-2 gap-3 mb-6">
-                            ${Object.values(THEME_OPTIONS).map(thm => `
-                                <div onclick="selectThemeForCourse(${course.course_id}, '${thm.id}')" class="p-3 rounded-2xl border cursor-pointer transition flex items-center gap-2.5 ${currentTheme === thm.id ? 'border-slate-800 bg-slate-50 ring-2 ring-slate-800' : 'border-slate-200 hover:border-slate-400'}">
-                                    <div class="w-7 h-7 rounded-xl bg-gradient-to-tr ${thm.gradient} shrink-0 shadow-xs"></div>
-                                    <div class="min-w-0">
-                                        <p class="text-xs font-bold text-slate-800 truncate">${thm.nama}</p>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-
-                        <div class="flex justify-end">
-                            <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
-                                Tutup
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        };
-
-        window.selectThemeForCourse = async function(courseId, themeId) {
-            const courseIdx = coursesTable.findIndex(c => Number(c.course_id) === Number(courseId));
-            if (courseIdx !== -1) {
-                coursesTable[courseIdx].theme = themeId;
-                
-                // KUNCI CADANGAN PERSISTENSI: Simpan ke localStorage dengan ID unik
-                localStorage.setItem(`lms_theme_${courseId}`, themeId);
-                saveLocalStorageData();
-
-                if (supabaseClient) {
-                    try {
-                        await supabaseClient.from('courses').update({ theme: themeId }).eq('course_id', courseId);
-                    } catch (e) {
-                        console.warn('Gagal simpan theme di Supabase:', e);
-                    }
-                }
-
-                showToast(`Tema visual berhasil diubah ke ${THEME_OPTIONS[themeId].nama}!`, 'success');
-                closeModal();
-                render();
-            }
-        };
-
-        window.openBulkImportModal = function() {
-            modalContainer.innerHTML = `
-                <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 fade-in">
-                    <div class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-6 sm:p-7 border border-slate-100 flex flex-col max-h-[92vh]">
-                        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4 shrink-0">
-                            <div>
-                                <h3 class="text-xl font-extrabold text-slate-800 flex items-center gap-2">
-                                    <i class="ph-bold ph-file-arrow-up text-amber-500 text-2xl"></i>
-                                    <span>Upload / Import Siswa Massal</span>
-                                </h3>
-                                <p class="text-xs text-slate-500 mt-0.5">Daftarkan banyak akun siswa sekaligus via file .CSV atau tempel teks.</p>
-                            </div>
-                            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700 text-2xl font-bold leading-none">&times;</button>
-                        </div>
-
-                        <div class="space-y-4 overflow-y-auto custom-scrollbar flex-1 pr-1">
-                            <!-- Opsi File Upload -->
-                            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center gap-1.5">
-                                    <i class="ph-bold ph-upload-simple"></i> Unggah File (.CSV)
-                                </label>
-                                <input type="file" id="bulk-file-input" accept=".csv,text/csv,text/plain" onchange="handleBulkFileUpload(event)" class="w-full border border-slate-300 rounded-xl p-2.5 text-xs file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-100 file:text-amber-800 hover:file:bg-amber-200">
-                            </div>
-
-                            <!-- Opsi Tempel Teks (Paste) -->
-                            <div>
-                                <div class="flex justify-between items-center mb-1">
-                                    <label class="block text-xs font-bold text-slate-700 uppercase">
-                                        Atau Tempel (Paste) Teks Format CSV:
-                                    </label>
-                                    <button type="button" onclick="loadSampleCsvText()" class="text-[11px] text-indigo-600 hover:underline font-bold">
-                                        Contoh Format
-                                    </button>
-                                </div>
-                                <textarea id="bulk-text-area" rows="5" placeholder="Nama Lengkap, Email, Password&#10;Ahmad Fauzi, ahmad@sekolah.com, 123&#10;Rina Lestari, rina@sekolah.com, 123&#10;Bambang Suryo, bambang@sekolah.com, 123" class="w-full border border-slate-300 rounded-xl p-3 text-xs font-mono text-slate-800 break-all focus:ring-2 focus:ring-amber-500 outline-none resize-none custom-scrollbar"></textarea>
-                                <p class="text-[11px] text-slate-400 mt-0.5">Format: <code>Nama, Email, Password</code> (satu baris untuk setiap siswa, dipisahkan koma atau titik koma).</p>
-                            </div>
-
-                            <!-- Area Pratinjau Parsial -->
-                            <div id="bulk-preview-container" class="hidden space-y-2">
-                                <div class="flex justify-between items-center text-xs font-bold text-slate-700">
-                                    <span>Pratinjau Data Siswa:</span>
-                                    <span id="bulk-preview-count" class="text-emerald-600">0 Siswa Terdeteksi</span>
-                                </div>
-                                <div class="max-h-36 overflow-y-auto border border-slate-200 rounded-xl bg-slate-50 custom-scrollbar">
-                                    <table class="w-full text-left text-xs">
-                                        <thead class="bg-slate-200 text-slate-600 sticky top-0">
-                                            <tr>
-                                                <th class="p-2">No</th>
-                                                <th class="p-2">Nama</th>
-                                                <th class="p-2">Email</th>
-                                                <th class="p-2">Password</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="bulk-preview-tbody" class="divide-y divide-slate-200 text-slate-700"></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="flex justify-end gap-3 pt-4 border-t border-slate-100 shrink-0 mt-3">
-                            <button type="button" onclick="closeModal()" class="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition">
-                                Batal
-                            </button>
-                            <button type="button" onclick="parseBulkTextAndPreview()" class="px-4 py-2.5 text-xs font-bold text-slate-700 bg-slate-200 hover:bg-slate-300 rounded-xl transition flex items-center gap-1.5">
-                                <i class="ph-bold ph-eye"></i> Cek Data
-                            </button>
-                            <button type="button" onclick="executeBulkImport()" class="px-6 py-2.5 text-xs font-extrabold text-white bg-amber-600 hover:bg-amber-700 rounded-xl shadow-md transition flex items-center gap-1.5">
-                                <i class="ph-bold ph-floppy-disk"></i>
-                                <span>Simpan / Daftarkan Semua</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        };
-
-        window.loadSampleCsvText = function() {
-            const sample = `Ahmad Fauzi, ahmad@sekolah.com, 123\nRina Lestari, rina@sekolah.com, 123\nBambang Suryo, bambang@sekolah.com, 123\nSiti Rahayu, siti@sekolah.com, 123\nDewi Sartika, dewi@sekolah.com, 123`;
-            document.getElementById('bulk-text-area').value = sample;
-            parseBulkTextAndPreview();
-        };
-
-        window.handleBulkFileUpload = function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(evt) {
-                document.getElementById('bulk-text-area').value = evt.target.result;
-                parseBulkTextAndPreview();
-            };
-            reader.readAsText(file);
-        };
-
-        let parsedBulkStudents = [];
-
-        window.parseBulkTextAndPreview = function() {
-            const rawText = document.getElementById('bulk-text-area').value;
-            const lines = rawText.split('\n');
-            parsedBulkStudents = [];
-
-            lines.forEach((line) => {
-                const trimmed = line.trim();
-                if (!trimmed) return;
-                if (trimmed.toLowerCase().startsWith('nama') && trimmed.toLowerCase().includes('email')) return;
-
-                const parts = trimmed.split(/[,;]/).map(p => p.trim());
-                if (parts.length >= 2) {
-                    const nama = parts[0];
-                    const email = parts[1];
-                    const password = parts[2] || '123';
-
-                    if (nama && email && email.includes('@')) {
-                        parsedBulkStudents.push({ nama, email, password });
-                    }
-                }
-            });
-
-            const previewContainer = document.getElementById('bulk-preview-container');
-            const previewCount = document.getElementById('bulk-preview-count');
-            const previewTbody = document.getElementById('bulk-preview-tbody');
-
-            if (parsedBulkStudents.length > 0) {
-                previewContainer.classList.remove('hidden');
-                previewCount.textContent = `${parsedBulkStudents.length} Siswa Siap Diimport`;
-                previewTbody.innerHTML = parsedBulkStudents.map((std, i) => `
-                    <tr>
-                        <td class="p-2">${i + 1}</td>
-                        <td class="p-2 font-bold">${std.nama}</td>
-                        <td class="p-2">${std.email}</td>
-                        <td class="p-2 font-mono">${std.password}</td>
-                    </tr>
-                `).join('');
-            } else {
-                previewContainer.classList.add('hidden');
-                showToast('Tidak ada data siswa yang valid dalam format yang dimasukkan.', 'warning');
-            }
-        };
-
-        window.executeBulkImport = async function() {
-            if (parsedBulkStudents.length === 0) {
-                parseBulkTextAndPreview();
-            }
-
-            if (parsedBulkStudents.length === 0) {
-                showToast('Format data kosong atau belum valid. Pastikan format: Nama, Email, Password', 'warning');
-                return;
-            }
-
-            let maxId = usersTable.reduce((max, u) => Math.max(max, Number(u.user_id) || 0), 0);
-            const newAccounts = [];
-            let skippedCount = 0;
-
-            parsedBulkStudents.forEach(std => {
-                const emailExists = usersTable.some(u => u.email.toLowerCase() === std.email.toLowerCase()) || newAccounts.some(u => u.email.toLowerCase() === std.email.toLowerCase());
-                if (emailExists) {
-                    skippedCount++;
-                    return;
-                }
-
-                maxId++;
-                newAccounts.push({
-                    user_id: maxId,
-                    nama_lengkap: std.nama,
-                    email: std.email,
-                    password: std.password,
-                    role: 'Siswa',
-                    instansi: state.user.instansi || 'RuruAlbernEdu LMS',
-                    ttd_url: ''
-                });
-            });
-
-            if (newAccounts.length === 0) {
-                showToast(`Seluruh ${skippedCount} akun dalam daftar sudah terdaftar sebelumnya (Email duplikat).`, 'warning');
-                return;
-            }
-
-            usersTable.push(...newAccounts);
-            saveLocalStorageData();
-
-            if (supabaseClient) {
-                try {
-                    await supabaseClient.from('users').insert(newAccounts);
-                } catch (e) {
-                    console.warn('Gagal insert batch siswa di Supabase:', e);
-                }
-            }
-
-            closeModal();
-            showToast(`Berhasil mendaftarkan ${newAccounts.length} siswa secara massal! ${skippedCount > 0 ? `(${skippedCount} dilewati karena email duplikat)` : ''}`, 'success');
-            render();
-        };
-
-        function getTeacherCertificateSettingHTML() {
-            const instansi = state.user.instansi || '';
-            const ttdUrl = state.user.ttd_url || '';
-
-            return `
-                <div class="flex-1 bg-slate-50 overflow-y-auto custom-scrollbar p-5 sm:p-8">
-                    <div class="max-w-2xl mx-auto space-y-6">
-                        <button onclick="navigateTo('dashboard')" class="text-indigo-600 hover:underline flex items-center gap-1.5 font-bold text-sm">
-                            <i class="ph-bold ph-arrow-left"></i> Kembali ke Dasbor
-                        </button>
-
-                        <div class="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
-                            <div class="bg-amber-500 p-6 text-white">
-                                <h2 class="text-2xl font-extrabold flex items-center gap-2">
-                                    <i class="ph-bold ph-certificate text-3xl"></i> Pengaturan Sertifikat Digital
-                                </h2>
-                                <p class="text-xs text-amber-100 mt-1">Nama instansi dan tanda tangan digital Anda akan dicetak secara otomatis di sertifikat siswa.</p>
-                            </div>
-
-                            <form onsubmit="handleSaveCertificateSettings(event)" class="p-6 space-y-5">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5">Nama Instansi / Sekolah / Lembaga</label>
-                                    <input id="cert-instansi" type="text" required placeholder="Contoh: SMK Negeri 2 Ketahanan Listrik" value="${instansi}" class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-amber-500 outline-none">
-                                </div>
-
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1.5">Unggah Foto Tanda Tangan Digital (PNG / JPG)</label>
-                                    <input id="cert-ttd-file" type="file" accept="image/*" onchange="previewSignature(event)" class="w-full border border-slate-300 rounded-xl p-2.5 text-xs file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100">
-                                </div>
-
-                                <div>
-                                    <span class="block text-xs font-bold text-slate-500 uppercase mb-2">Pratinjau Tanda Tangan:</span>
-                                    <div class="h-32 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center p-3 bg-slate-50 overflow-hidden">
-                                        <img id="signature-preview" src="${ttdUrl || 'https://placehold.co/300x100/f8fafc/94a3b8?text=Belum+Ada+Tanda+Tangan'}" alt="Tanda Tangan" class="max-h-full object-contain">
-                                    </div>
-                                    <input type="hidden" id="cert-ttd-base64" value="${ttdUrl}">
-                                </div>
-
-                                <div class="pt-3 flex justify-end">
-                                    <button type="submit" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition text-sm flex items-center gap-2">
-                                        <i class="ph-bold ph-floppy-disk"></i> Simpan / Daftarkan
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        window.previewSignature = function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(evt) {
-                    document.getElementById('signature-preview').src = evt.target.result;
-                    document.getElementById('cert-ttd-base64').value = evt.target.result;
-                };
-                reader.readAsDataURL(file);
-            }
-        };
-
-        window.handleSaveCertificateSettings = async function(e) {
-            e.preventDefault();
-            const instansi = document.getElementById('cert-instansi').value.trim();
-            const ttd = document.getElementById('cert-ttd-base64').value;
-
-            state.user.instansi = instansi;
-            state.user.ttd_url = ttd;
-
-            const idx = usersTable.findIndex(u => Number(u.user_id) === Number(state.user.user_id));
-            if (idx !== -1) {
-                usersTable[idx].instansi = instansi;
-                usersTable[idx].ttd_url = ttd;
-            }
-            saveLocalStorageData();
-
-            if (supabaseClient) {
-                try {
-                    await supabaseClient.from('users').update({ instansi: instansi, ttd_url: ttd }).eq('user_id', state.user.user_id);
-                } catch (err) {
-                    console.warn('Gagal update ttd di Supabase:', err);
-                }
-            }
-
-            showToast('Pengaturan sertifikat berhasil disimpan!', 'success');
-            navigateTo('dashboard');
-        };
 
         function getTeacherFormCourseHTML() {
             const instructors = usersTable.filter(u => u.role === 'Guru' || u.role === 'Admin');
@@ -1369,17 +1037,17 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
 
                         <div class="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
                             <div class="bg-indigo-600 p-6 text-white">
-                                <h2 class="text-2xl font-extrabold flex items-center gap-2">
-                                    <i class="ph-bold ph-book-open"></i> Buat Topik Pembelajaran Baru
+                                <h2 class="text-2xl font-black flex items-center gap-2">
+                                    <i class="ph-bold ph-book-open"></i> Buat Topik Pembelajaran Baru (Unlimited)
                                 </h2>
-                                <p class="text-xs text-indigo-100 mt-1">Topik ini akan menjadi ruang silabus belajar bagi para siswa dengan proteksi token akses.</p>
+                                <p class="text-xs text-indigo-100 mt-1">Sistem bebas penambahan topik. Metadata otomatis dienkapsulasi aman ke cloud!</p>
                             </div>
 
                             <form onsubmit="handleCreateCourse(event)" class="p-6 space-y-4">
                                 ${state.user.role === 'Admin' ? `
                                     <div>
                                         <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Pilih Guru / Instruktur Pengampu</label>
-                                        <select id="course-instruktur" required class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+                                        <select id="course-instruktur" required class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white font-semibold">
                                             ${instructors.map(ins => `<option value="${ins.user_id}">${ins.nama_lengkap} (${ins.role})</option>`).join('')}
                                         </select>
                                     </div>
@@ -1387,7 +1055,7 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
 
                                 <div>
                                     <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Judul Topik / Kursus</label>
-                                    <input id="course-title" type="text" required placeholder="Contoh: Teknik Tenaga Listrik Industri" class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    <input id="course-title" type="text" required placeholder="Contoh: ITL-12 Instalasi Tenaga Listrik 3 Fasa" class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
                                 </div>
 
                                 <div>
@@ -1426,7 +1094,7 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
 
                                 <div class="pt-3 flex justify-end">
                                     <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition text-sm flex items-center gap-2">
-                                        <i class="ph-bold ph-floppy-disk"></i> Simpan / Daftarkan
+                                        <i class="ph-bold ph-floppy-disk"></i> Simpan / Daftarkan Topik
                                     </button>
                                 </div>
                             </form>
@@ -1460,275 +1128,27 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                 token_akses: token
             };
 
-            coursesTable.push(newCourse);
+            // Tambahkan langsung ke daftar lokal
+            coursesTable.unshift(newCourse);
             
             // Simpan tema dan token ke kunci cadangan lokal
             localStorage.setItem(`lms_theme_${newCourseId}`, selectedTheme);
             localStorage.setItem(`lms_token_${newCourseId}`, token);
             saveLocalStorageData();
 
+            // UPLOAD CERDAS DENGAN UNIVERSAL METADATA ENGINE
             if (supabaseClient) {
-                try {
-                    await supabaseClient.from('courses').insert([newCourse]);
-                } catch (err) {
-                    console.warn('Gagal insert course di Supabase:', err);
-                }
+                showToast('Menyimpan topik baru ke cloud Supabase...', 'info');
+                await uploadSingleCourseToCloud(newCourse);
             }
 
-            showToast('Topik pembelajaran baru berhasil disimpan!', 'success');
+            showToast('Topik pembelajaran baru berhasil disimpan & disinkronkan!', 'success');
             navigateTo('dashboard');
         };
 
-        function getTeacherCourseHTML() {
-            const course = coursesTable.find(c => Number(c.course_id) === Number(state.activeCourseId));
-            if (!course) return '<div class="p-8 text-center">Topik tidak ditemukan.</div>';
-            
-            const sessions = DB.getCourseSessions(course.course_id);
-            const students = usersTable.filter(u => u.role === 'Siswa');
-            const themeCfg = getThemeConfig(course.theme);
-            const token = course.token_akses || 'TIDAK-ADA';
-
-            return `
-                <div class="flex-1 bg-slate-50 overflow-y-auto custom-scrollbar p-5 sm:p-8">
-                    <div class="max-w-6xl mx-auto space-y-6">
-                        <button onclick="navigateTo('dashboard')" class="text-indigo-600 hover:underline flex items-center gap-1.5 font-bold text-sm">
-                            <i class="ph-bold ph-arrow-left"></i> Kembali ke Dasbor
-                        </button>
-
-                        <!-- Box Detail Topik dengan Akses Edit Topik, Token, & Tema -->
-                        <div class="bg-white p-6 sm:p-8 rounded-3xl border ${themeCfg.cardAccent} shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden">
-                            <div class="h-1.5 w-full bg-gradient-to-r ${themeCfg.gradient} absolute top-0 left-0"></div>
-
-                            <div class="space-y-2 max-w-3xl pt-1">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <span class="text-xs font-bold ${themeCfg.badgeBg} px-3 py-1 rounded-full uppercase tracking-wider">Topik #${course.course_id}</span>
-                                    
-                                    <!-- Chip Token Akses Guru -->
-                                    <div class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-900 border border-amber-300 px-3 py-1 rounded-full text-xs font-bold shadow-2xs">
-                                        <i class="ph-bold ph-key text-amber-600"></i>
-                                        <span>Token:</span>
-                                        <span class="font-mono tracking-wider">${token}</span>
-                                        <button onclick="copyToClipboard('${token}', 'Token ${token} disalin!')" class="text-amber-700 hover:text-amber-950 ml-1" title="Salin Token">
-                                            <i class="ph-bold ph-copy"></i>
-                                        </button>
-                                    </div>
-
-                                    <button onclick="openChangeThemeModal(${course.course_id})" class="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full text-xs font-bold transition shadow-2xs">
-                                        <i class="ph-bold ph-palette text-sm"></i>
-                                        <span>Tema: ${themeCfg.nama}</span>
-                                    </button>
-                                    <button onclick="openEditTopicModal(${course.course_id})" class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-full text-xs font-bold transition shadow-xs">
-                                        <i class="ph-bold ph-pencil-simple text-sm"></i>
-                                        <span>Edit Topik & Token</span>
-                                    </button>
-                                </div>
-                                <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-800 leading-tight">${course.judul_kursus}</h1>
-                                <p class="text-sm text-slate-600 leading-relaxed">${course.deskripsi_singkat}</p>
-                            </div>
-                            <button onclick="navigateTo('form_sesi')" class="${themeCfg.btnBg} font-bold py-3 px-5 rounded-2xl shadow-sm transition flex items-center gap-2 text-sm shrink-0">
-                                <i class="ph-bold ph-plus-circle text-lg"></i> Tambah Sesi Pembelajaran
-                            </button>
-                        </div>
-
-                        <!-- Silabus Sesi Materi & Progres Siswa -->
-                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <!-- Kolom Silabus Sesi Materi -->
-                            <div class="lg:col-span-2 space-y-4">
-                                <div class="flex items-center justify-between">
-                                    <h3 class="font-extrabold text-slate-800 flex items-center gap-2 text-base">
-                                        <i class="ph-bold ph-list-numbers text-indigo-600"></i> Silabus Sesi Materi
-                                    </h3>
-                                    <span class="text-xs font-semibold text-slate-500">${sessions.length} Sesi Terdaftar</span>
-                                </div>
-                                
-                                ${sessions.map((s, idx) => {
-                                    const quizzes = DB.getSessionQuiz(s.session_id);
-                                    return `
-                                        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-indigo-200 transition">
-                                            <div class="space-y-1.5 flex-1 min-w-0">
-                                                <div class="flex items-center gap-2">
-                                                    <span class="${themeCfg.badgeBg} text-xs font-bold px-2.5 py-0.5 rounded-md">Sesi ${s.urutan_sesi || (idx + 1)}</span>
-                                                    <span class="text-xs font-semibold text-slate-400">KKM: ${s.kkm_kuis || 70}</span>
-                                                    <span class="text-xs bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-md font-medium">${quizzes.length} Soal Kuis</span>
-                                                </div>
-                                                <h4 class="font-bold text-slate-800 text-sm truncate" title="${s.deskripsi_modul}">${s.deskripsi_modul}</h4>
-                                            </div>
-
-                                            <div class="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                                                <!-- Tombol Edit Sesi -->
-                                                <button onclick="openEditSessionModal(${s.session_id})" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-amber-50 text-slate-700 hover:text-amber-800 border border-slate-200 hover:border-amber-300 rounded-xl text-xs font-bold transition shadow-2xs">
-                                                    <i class="ph-bold ph-pencil-simple text-sm"></i>
-                                                    <span>Edit</span>
-                                                </button>
-
-                                                <!-- Tombol Delete Sesi -->
-                                                <button onclick="openDeleteSessionConfirm(${s.session_id}, ${course.course_id})" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-rose-50 text-rose-600 hover:text-rose-700 border border-slate-200 hover:border-rose-300 rounded-xl text-xs font-bold transition shadow-2xs">
-                                                    <i class="ph-bold ph-trash text-sm"></i>
-                                                    <span>Delete</span>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    `;
-                                }).join('')}
-
-                                ${sessions.length === 0 ? `
-                                    <div class="bg-white p-10 rounded-2xl border border-dashed border-slate-300 text-center text-slate-400">
-                                        Belum ada sesi di topik ini. Klik "Tambah Sesi Pembelajaran" di pojok kanan atas.
-                                    </div>
-                                ` : ''}
-                            </div>
-
-                            <!-- Kolom Rapor Progres Siswa -->
-                            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs h-fit space-y-4">
-                                <div class="flex justify-between items-center">
-                                    <h3 class="font-bold text-slate-800 flex items-center gap-2">
-                                        <i class="ph-bold ph-chart-donut text-emerald-600"></i> Progres Siswa
-                                    </h3>
-                                    <button onclick="openBulkImportModal()" class="text-xs text-indigo-600 hover:underline font-bold flex items-center gap-1">
-                                        <i class="ph-bold ph-plus"></i> Import Siswa
-                                    </button>
-                                </div>
-                                <div class="space-y-3 max-h-96 overflow-y-auto custom-scrollbar">
-                                    ${students.map(std => {
-                                        const pct = DB.getCourseProgressPercent(std.user_id, course.course_id);
-                                        return `
-                                            <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                                <div class="flex justify-between items-center mb-1.5 text-xs">
-                                                    <span class="font-bold text-slate-700">${std.nama_lengkap}</span>
-                                                    <span class="font-bold ${pct === 100 ? 'text-emerald-600' : 'text-slate-500'}">${pct}%</span>
-                                                </div>
-                                                <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                                                    <div class="bg-emerald-500 h-full rounded-full transition-all duration-300" style="width: ${pct}%"></div>
-                                                </div>
-                                            </div>
-                                        `;
-                                    }).join('')}
-                                    ${students.length === 0 ? '<p class="text-xs text-slate-400 italic">Belum ada siswa terdaftar.</p>' : ''}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        window.openEditTopicModal = function(courseId) {
+        window.openDeleteTopicConfirm = function(courseId) {
             const course = coursesTable.find(c => Number(c.course_id) === Number(courseId));
             if (!course) return;
-
-            const currentTheme = course.theme || 'indigo';
-            const currentToken = course.token_akses || generateRandomToken('EDU');
-
-            modalContainer.innerHTML = `
-                <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 fade-in">
-                    <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 sm:p-7 border border-slate-100">
-                        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                            <h3 class="text-lg font-extrabold text-slate-800 flex items-center gap-2">
-                                <i class="ph-bold ph-pencil-simple text-amber-500 text-xl"></i>
-                                <span>Edit Informasi Topik & Token</span>
-                            </h3>
-                            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700 text-2xl font-bold leading-none">&times;</button>
-                        </div>
-
-                        <form onsubmit="handleSaveEditedTopic(event, ${course.course_id})" class="space-y-4">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Judul Topik Pembelajaran</label>
-                                <input type="text" id="edit-topic-title" required value="${course.judul_kursus.replace(/"/g, '&quot;')}" class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-amber-500 outline-none">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Deskripsi Topik</label>
-                                <textarea id="edit-topic-desc" rows="3" required class="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-amber-500 outline-none resize-none">${course.deskripsi_singkat}</textarea>
-                            </div>
-
-                            <!-- Token Akses Kursus -->
-                            <div class="bg-amber-50/70 border border-amber-200 p-3.5 rounded-2xl">
-                                <label class="block text-xs font-bold text-amber-900 uppercase mb-1 flex items-center gap-1.5">
-                                    <i class="ph-bold ph-key"></i> Token Akses / Izin Masuk Siswa
-                                </label>
-                                <div class="flex gap-2">
-                                    <input type="text" id="edit-topic-token" required value="${currentToken}" class="flex-1 font-mono uppercase tracking-wider font-bold border border-amber-300 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-amber-500 outline-none">
-                                    <button type="button" onclick="randomizeEditCourseToken()" class="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs transition flex items-center gap-1 shrink-0">
-                                        <i class="ph-bold ph-arrows-clockwise"></i> Acak
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase mb-2">Tema Visual Topik</label>
-                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                    ${Object.values(THEME_OPTIONS).map(thm => `
-                                        <label class="cursor-pointer">
-                                            <input type="radio" name="edit-theme-radio" value="${thm.id}" ${currentTheme === thm.id ? 'checked' : ''} class="peer sr-only">
-                                            <div class="p-2 rounded-xl border border-slate-200 peer-checked:border-slate-800 peer-checked:ring-2 peer-checked:ring-slate-800 transition flex items-center gap-1.5">
-                                                <span class="w-4 h-4 rounded-md bg-gradient-to-tr ${thm.gradient} shrink-0"></span>
-                                                <span class="text-[11px] font-bold text-slate-700 truncate">${thm.nama}</span>
-                                            </div>
-                                        </label>
-                                    `).join('')}
-                                </div>
-                            </div>
-
-                            <div class="flex justify-end gap-3 pt-3 border-t border-slate-100">
-                                <button type="button" onclick="closeModal()" class="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition">
-                                    Batal
-                                </button>
-                                <button type="submit" class="px-5 py-2.5 text-xs font-extrabold text-white bg-amber-600 hover:bg-amber-700 rounded-xl shadow-md transition flex items-center gap-1.5">
-                                    <i class="ph-bold ph-floppy-disk"></i>
-                                    <span>Simpan / Daftarkan</span>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            `;
-        };
-
-        window.randomizeEditCourseToken = function() {
-            const el = document.getElementById('edit-topic-token');
-            if (el) el.value = generateRandomToken('EDU');
-        };
-
-        window.handleSaveEditedTopic = async function(e, courseId) {
-            e.preventDefault();
-            const newTitle = document.getElementById('edit-topic-title').value.trim();
-            const newDesc = document.getElementById('edit-topic-desc').value.trim();
-            const newToken = document.getElementById('edit-topic-token').value.trim().toUpperCase() || generateRandomToken('EDU');
-            const newTheme = document.querySelector('input[name="edit-theme-radio"]:checked')?.value || 'indigo';
-
-            const idx = coursesTable.findIndex(c => Number(c.course_id) === Number(courseId));
-            if (idx !== -1) {
-                coursesTable[idx].judul_kursus = newTitle;
-                coursesTable[idx].deskripsi_singkat = newDesc;
-                coursesTable[idx].theme = newTheme;
-                coursesTable[idx].token_akses = newToken;
-                
-                // Simpan kunci persistensi tema & token
-                localStorage.setItem(`lms_theme_${courseId}`, newTheme);
-                localStorage.setItem(`lms_token_${courseId}`, newToken);
-                saveLocalStorageData();
-            }
-
-            if (supabaseClient) {
-                try {
-                    await supabaseClient.from('courses').update({
-                        judul_kursus: newTitle,
-                        deskripsi_singkat: newDesc,
-                        theme: newTheme,
-                        token_akses: newToken
-                    }).eq('course_id', courseId);
-                } catch (err) {
-                    console.warn('Gagal sinkron update course ke Supabase:', err);
-                }
-            }
-
-            closeModal();
-            showToast('Topik pembelajaran dan token akses berhasil diperbarui!', 'success');
-            render();
-        };
-
-        window.openDeleteSessionConfirm = function(sessionId, courseId) {
-            const session = sessionsTable.find(s => Number(s.session_id) === Number(sessionId));
-            if (!session) return;
 
             modalContainer.innerHTML = `
                 <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 fade-in">
@@ -1736,17 +1156,17 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                         <div class="w-14 h-14 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4">
                             <i class="ph-bold ph-trash"></i>
                         </div>
-                        <h3 class="text-lg font-extrabold text-slate-900 mb-1">Hapus Sesi Pembelajaran?</h3>
+                        <h3 class="text-lg font-extrabold text-slate-900 mb-1">Hapus Topik Pembelajaran?</h3>
                         <p class="text-xs text-slate-500 mb-6 leading-relaxed">
-                            Apakah Anda yakin ingin menghapus <strong>Sesi ${session.urutan_sesi}</strong>? Seluruh materi, 10 soal kuis, serta progres siswa pada sesi ini akan dihapus secara permanen.
+                            Apakah Anda yakin ingin menghapus topik <strong>"${course.judul_kursus}"</strong>? Seluruh sesi dan progres di dalamnya akan dihapus.
                         </p>
                         <div class="flex gap-3">
                             <button type="button" onclick="closeModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl transition text-xs">
                                 Batal
                             </button>
-                            <button type="button" onclick="executeDeleteSession(${sessionId}, ${courseId})" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl transition text-xs shadow-md flex items-center justify-center gap-1.5">
+                            <button type="button" onclick="executeDeleteTopic(${courseId})" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl transition text-xs shadow-md flex items-center justify-center gap-1.5">
                                 <i class="ph-bold ph-trash"></i>
-                                <span>Ya, Hapus Sesi</span>
+                                <span>Ya, Hapus Topik</span>
                             </button>
                         </div>
                     </div>
@@ -1754,645 +1174,24 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
             `;
         };
 
-        window.executeDeleteSession = async function(sessionId, courseId) {
-            sessionsTable = sessionsTable.filter(s => Number(s.session_id) !== Number(sessionId));
-            quizzesTable = quizzesTable.filter(q => Number(q.session_id) !== Number(sessionId));
-            userProgressTable = userProgressTable.filter(p => Number(p.session_id) !== Number(sessionId));
-            
-            const remainingSessions = sessionsTable.filter(s => Number(s.course_id) === Number(courseId)).sort((a,b) => a.urutan_sesi - b.urutan_sesi);
-            remainingSessions.forEach((s, idx) => { s.urutan_sesi = idx + 1; });
-
+        window.executeDeleteTopic = async function(courseId) {
+            coursesTable = coursesTable.filter(c => Number(c.course_id) !== Number(courseId));
+            sessionsTable = sessionsTable.filter(s => Number(s.course_id) !== Number(courseId));
             saveLocalStorageData();
 
             if (supabaseClient) {
                 try {
-                    await supabaseClient.from('user_progress').delete().eq('session_id', sessionId);
-                    await supabaseClient.from('quizzes').delete().eq('session_id', sessionId);
-                    await supabaseClient.from('sessions').delete().eq('session_id', sessionId);
-                    for (const s of remainingSessions) {
-                        await supabaseClient.from('sessions').update({ urutan_sesi: s.urutan_sesi }).eq('session_id', s.session_id);
-                    }
-                } catch (err) {
-                    console.warn('Gagal delete sesi di Supabase:', err);
+                    await supabaseClient.from('courses').delete().eq('course_id', courseId);
+                    await supabaseClient.from('sessions').delete().eq('course_id', courseId);
+                } catch (e) {
+                    console.warn('Gagal delete di Supabase:', e);
                 }
             }
 
             closeModal();
-            showToast('Sesi pembelajaran dan kuis terkait berhasil dihapus.', 'info');
+            showToast('Topik pembelajaran berhasil dihapus.', 'info');
             render();
         };
-
-        window.openEditSessionModal = function(sessionId) {
-            const session = sessionsTable.find(s => Number(s.session_id) === Number(sessionId));
-            if (!session) return;
-
-            let quizzes = DB.getSessionQuiz(sessionId);
-            while (quizzes.length < 10) {
-                quizzes.push({
-                    quiz_id: Date.now() + Math.floor(Math.random() * 1000),
-                    session_id: sessionId,
-                    pertanyaan: 'Pertanyaan evaluasi kompetensi...',
-                    pilihan_ganda: ['Pilihan A', 'Pilihan B', 'Pilihan C', 'Pilihan D'],
-                    jawaban_benar: 0
-                });
-            }
-
-            modalContainer.innerHTML = `
-                <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-5 fade-in">
-                    <div class="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col border border-slate-100 overflow-hidden">
-                        <div class="bg-indigo-600 p-5 text-white flex justify-between items-center shrink-0">
-                            <div>
-                                <h3 class="text-xl font-extrabold flex items-center gap-2">
-                                    <i class="ph-bold ph-pencil-simple-line text-2xl"></i>
-                                    <span>Edit Sesi Pembelajaran & 10 Kuis</span>
-                                </h3>
-                                <p class="text-xs text-indigo-100 mt-0.5">Sesi #${session.urutan_sesi} (ID: ${session.session_id})</p>
-                            </div>
-                            <button onclick="closeModal()" class="text-white/80 hover:text-white text-2xl font-bold">&times;</button>
-                        </div>
-
-                        <form onsubmit="handleSaveEditedSession(event, ${session.session_id})" class="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
-                            <div class="space-y-4">
-                                <h4 class="text-xs font-extrabold text-indigo-800 uppercase tracking-wider pb-1 border-b border-indigo-100">
-                                    1. Informasi Modul Sesi
-                                </h4>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Deskripsi Modul</label>
-                                    <textarea id="edit-sess-desc" required rows="2" class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none">${session.deskripsi_modul}</textarea>
-                                </div>
-
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Tujuan Pembelajaran (Per Baris)</label>
-                                    <textarea id="edit-sess-tujuan" required rows="3" class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none">${session.tujuan_belajar}</textarea>
-                                </div>
-
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Link URL Thumbnail / Video</label>
-                                        <input id="edit-sess-video" type="url" required value="${session.link_video}" class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">KKM Kelulusan Kuis (0 - 100)</label>
-                                        <input id="edit-sess-kkm" type="number" min="10" max="100" value="${session.kkm_kuis}" required class="w-full border border-slate-300 rounded-xl p-3 text-sm font-bold text-center focus:ring-2 focus:ring-indigo-500 outline-none">
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Bahan Diskusi Siswa</label>
-                                    <input id="edit-sess-diskusi" type="text" required value="${session.bahan_diskusi.replace(/"/g, '&quot;')}" class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                                </div>
-                            </div>
-
-                            <div class="space-y-4 pt-4 border-t border-slate-200">
-                                <div class="flex items-center justify-between">
-                                    <h4 class="text-xs font-extrabold text-indigo-800 uppercase tracking-wider pb-1">
-                                        2. Evaluasi 10 Butir Soal Kuis
-                                    </h4>
-                                    <span class="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">10 Soal Lengkap</span>
-                                </div>
-
-                                <div class="space-y-5">
-                                    ${quizzes.slice(0, 10).map((q, i) => `
-                                        <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                                            <input type="hidden" id="edit-quiz-id-${i}" value="${q.quiz_id}">
-                                            <div class="flex justify-between items-center">
-                                                <span class="text-xs font-extrabold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-md">Soal #${i + 1}</span>
-                                            </div>
-                                            <input id="edit-quiz-q-${i}" type="text" required value="${q.pertanyaan.replace(/"/g, '&quot;')}" class="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
-
-                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                                                <input id="edit-quiz-opt-${i}-0" type="text" required value="${(q.pilihan_ganda[0] || '').replace(/"/g, '&quot;')}" placeholder="Opsi A" class="border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
-                                                <input id="edit-quiz-opt-${i}-1" type="text" required value="${(q.pilihan_ganda[1] || '').replace(/"/g, '&quot;')}" placeholder="Opsi B" class="border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
-                                                <input id="edit-quiz-opt-${i}-2" type="text" required value="${(q.pilihan_ganda[2] || '').replace(/"/g, '&quot;')}" placeholder="Opsi C" class="border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
-                                                <input id="edit-quiz-opt-${i}-3" type="text" required value="${(q.pilihan_ganda[3] || '').replace(/"/g, '&quot;')}" placeholder="Opsi D" class="border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
-                                            </div>
-
-                                            <div class="flex items-center gap-2 pt-1">
-                                                <label class="text-xs font-bold text-slate-600">Kunci Jawaban Benar:</label>
-                                                <select id="edit-quiz-ans-${i}" class="border border-slate-300 rounded-lg px-3 py-1 text-xs bg-white font-bold text-emerald-700">
-                                                    <option value="0" ${q.jawaban_benar === 0 ? 'selected' : ''}>Opsi A</option>
-                                                    <option value="1" ${q.jawaban_benar === 1 ? 'selected' : ''}>Opsi B</option>
-                                                    <option value="2" ${q.jawaban_benar === 2 ? 'selected' : ''}>Opsi C</option>
-                                                    <option value="3" ${q.jawaban_benar === 3 ? 'selected' : ''}>Opsi D</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-
-                            <div class="flex justify-end gap-3 pt-4 border-t border-slate-200">
-                                <button type="button" onclick="closeModal()" class="px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition">
-                                    Batal
-                                </button>
-                                <button type="submit" class="px-7 py-2.5 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md transition flex items-center gap-1.5">
-                                    <i class="ph-bold ph-floppy-disk"></i>
-                                    <span>Simpan / Daftarkan</span>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            `;
-        };
-
-        window.handleSaveEditedSession = async function(e, sessionId) {
-            e.preventDefault();
-            const desc = document.getElementById('edit-sess-desc').value.trim();
-            const tujuan = document.getElementById('edit-sess-tujuan').value.trim();
-            const video = document.getElementById('edit-sess-video').value.trim();
-            const kkm = Number(document.getElementById('edit-sess-kkm').value);
-            const diskusi = document.getElementById('edit-sess-diskusi').value.trim();
-
-            const sessIdx = sessionsTable.findIndex(s => Number(s.session_id) === Number(sessionId));
-            if (sessIdx !== -1) {
-                sessionsTable[sessIdx].deskripsi_modul = desc;
-                sessionsTable[sessIdx].tujuan_belajar = tujuan;
-                sessionsTable[sessIdx].link_video = video;
-                sessionsTable[sessIdx].kkm_kuis = kkm;
-                sessionsTable[sessIdx].bahan_diskusi = diskusi;
-            }
-
-            const updatedQuizzes = [];
-            for (let i = 0; i < 10; i++) {
-                const qId = Number(document.getElementById(`edit-quiz-id-${i}`).value);
-                const qText = document.getElementById(`edit-quiz-q-${i}`).value.trim();
-                const optA = document.getElementById(`edit-quiz-opt-${i}-0`).value.trim();
-                const optB = document.getElementById(`edit-quiz-opt-${i}-1`).value.trim();
-                const optC = document.getElementById(`edit-quiz-opt-${i}-2`).value.trim();
-                const optD = document.getElementById(`edit-quiz-opt-${i}-3`).value.trim();
-                const ans = Number(document.getElementById(`edit-quiz-ans-${i}`).value);
-
-                const quizObj = {
-                    quiz_id: qId,
-                    session_id: sessionId,
-                    pertanyaan: qText,
-                    pilihan_ganda: [optA, optB, optC, optD],
-                    jawaban_benar: ans
-                };
-
-                const qIndex = quizzesTable.findIndex(q => Number(q.quiz_id) === Number(qId));
-                if (qIndex !== -1) {
-                    quizzesTable[qIndex] = quizObj;
-                } else {
-                    quizzesTable.push(quizObj);
-                }
-                updatedQuizzes.push(quizObj);
-            }
-
-            saveLocalStorageData();
-
-            if (supabaseClient) {
-                try {
-                    await supabaseClient.from('sessions').update({
-                        deskripsi_modul: desc,
-                        tujuan_belajar: tujuan,
-                        link_video: video,
-                        kkm_kuis: kkm,
-                        bahan_diskusi: diskusi
-                    }).eq('session_id', sessionId);
-
-                    await supabaseClient.from('quizzes').upsert(updatedQuizzes);
-                } catch (err) {
-                    console.warn('Gagal sinkron update sesi ke Supabase:', err);
-                }
-            }
-
-            closeModal();
-            showToast('Sesi pembelajaran dan 10 kuis berhasil diperbarui!', 'success');
-            render();
-        };
-
-        window.closeModal = function() {
-            modalContainer.innerHTML = '';
-        };
-
-        function getTeacherFormSessionHTML() {
-            const course = coursesTable.find(c => Number(c.course_id) === Number(state.activeCourseId));
-            const curSessions = DB.getCourseSessions(course.course_id);
-            const nextUrutan = curSessions.length + 1;
-
-            return `
-                <div class="flex-1 bg-slate-50 overflow-y-auto custom-scrollbar p-5 sm:p-8">
-                    <div class="max-w-3xl mx-auto space-y-6">
-                        <button onclick="navigateTo('course_guru')" class="text-indigo-600 hover:underline flex items-center gap-1.5 font-bold text-sm">
-                            <i class="ph-bold ph-arrow-left"></i> Batal & Kembali
-                        </button>
-
-                        <div class="bg-white rounded-3xl shadow-xs border border-slate-200 overflow-hidden">
-                            <div class="bg-indigo-600 p-6 text-white">
-                                <h2 class="text-2xl font-extrabold flex items-center gap-2">
-                                    <i class="ph-bold ph-file-plus"></i> Form Sesi Baru & 10 Kuis
-                                </h2>
-                                <p class="text-xs text-indigo-100 mt-1">Topik: ${course.judul_kursus} | Sesi ke-${nextUrutan}</p>
-                            </div>
-
-                            <form onsubmit="handleSaveSessionAndQuizzes(event, ${course.course_id}, ${nextUrutan})" class="p-6 space-y-6">
-                                <div class="space-y-4">
-                                    <div>
-                                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Deskripsi & Materi Pokok Sesi</label>
-                                        <textarea id="sess-desc" required rows="2" placeholder="Uraikan ringkasan materi sesi ini..." class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none"></textarea>
-                                    </div>
-
-                                    <div>
-                                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Tujuan Pembelajaran (1 baris per tujuan)</label>
-                                        <textarea id="sess-tujuan" required rows="3" placeholder="1. Memahami dasar instalasi listrik&#10;2. Menentukan kapasitas pengaman" class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none"></textarea>
-                                    </div>
-
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Link URL Thumbnail / Video</label>
-                                            <input id="sess-video" type="url" required value="https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1000&auto=format&fit=crop&q=80" class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                                        </div>
-                                        <div>
-                                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">KKM Kelulusan Kuis (0 - 100)</label>
-                                            <input id="sess-kkm" type="number" min="10" max="100" value="70" required class="w-full border border-slate-300 rounded-xl p-3 text-sm font-bold text-center focus:ring-2 focus:ring-indigo-500 outline-none">
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Bahan Pemantik Diskusi</label>
-                                        <input id="sess-diskusi" type="text" required placeholder="Contoh: Mengapa pembumian (grounding) sangat mutlak diperlukan?" class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                                    </div>
-                                </div>
-
-                                <div class="pt-4 border-t border-slate-200">
-                                    <div class="flex items-center justify-between mb-4">
-                                        <h3 class="font-extrabold text-slate-800 flex items-center gap-2">
-                                            <i class="ph-bold ph-question text-amber-500"></i> Buat 10 Soal Kuis Pilihan Ganda
-                                        </h3>
-                                        <span class="text-xs bg-amber-50 text-amber-800 border border-amber-200 px-3 py-1 rounded-full font-bold">Wajib 10 Soal</span>
-                                    </div>
-
-                                    <div class="space-y-6">
-                                        ${Array.from({ length: 10 }).map((_, i) => `
-                                            <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
-                                                <div class="flex justify-between items-center">
-                                                    <span class="text-xs font-extrabold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-md">Soal #${i + 1}</span>
-                                                </div>
-                                                <input id="quiz-q-${i}" type="text" required placeholder="Tuliskan pertanyaan ke-${i+1}..." class="w-full border border-slate-300 rounded-xl p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
-
-                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                                                    <input id="quiz-opt-${i}-0" type="text" required placeholder="Opsi A" class="border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
-                                                    <input id="quiz-opt-${i}-1" type="text" required placeholder="Opsi B" class="border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
-                                                    <input id="quiz-opt-${i}-2" type="text" required placeholder="Opsi C" class="border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
-                                                    <input id="quiz-opt-${i}-3" type="text" required placeholder="Opsi D" class="border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
-                                                </div>
-
-                                                <div class="flex items-center gap-2 pt-1">
-                                                    <label class="text-xs font-bold text-slate-600">Kunci Jawaban Benar:</label>
-                                                    <select id="quiz-ans-${i}" class="border border-slate-300 rounded-lg px-3 py-1 text-xs bg-white font-bold text-emerald-700">
-                                                        <option value="0">Opsi A</option>
-                                                        <option value="1">Opsi B</option>
-                                                        <option value="2">Opsi C</option>
-                                                        <option value="3">Opsi D</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        `).join('')}
-                                    </div>
-                                </div>
-
-                                <div class="pt-4 flex justify-end">
-                                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition text-sm flex items-center gap-2">
-                                        <i class="ph-bold ph-floppy-disk"></i> Simpan / Daftarkan
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        window.handleSaveSessionAndQuizzes = async function(e, courseId, urutanSesi) {
-            e.preventDefault();
-            const desc = document.getElementById('sess-desc').value.trim();
-            const tujuan = document.getElementById('sess-tujuan').value.trim();
-            const video = document.getElementById('sess-video').value.trim();
-            const kkm = Number(document.getElementById('sess-kkm').value);
-            const diskusi = document.getElementById('sess-diskusi').value.trim();
-
-            const maxSessId = sessionsTable.reduce((m, s) => Math.max(m, Number(s.session_id) || 0), 1000);
-            const newSessionId = maxSessId + 1;
-
-            const newSession = {
-                session_id: newSessionId,
-                course_id: courseId,
-                urutan_sesi: urutanSesi,
-                deskripsi_modul: desc,
-                tujuan_belajar: tujuan,
-                link_video: video,
-                bahan_diskusi: diskusi,
-                kkm_kuis: kkm
-            };
-
-            let maxQuizId = quizzesTable.reduce((m, q) => Math.max(m, Number(q.quiz_id) || 0), 5000);
-            const newQuizzes = [];
-
-            for (let i = 0; i < 10; i++) {
-                maxQuizId++;
-                const qText = document.getElementById(`quiz-q-${i}`).value.trim();
-                const optA = document.getElementById(`quiz-opt-${i}-0`).value.trim();
-                const optB = document.getElementById(`quiz-opt-${i}-1`).value.trim();
-                const optC = document.getElementById(`quiz-opt-${i}-2`).value.trim();
-                const optD = document.getElementById(`quiz-opt-${i}-3`).value.trim();
-                const ans = Number(document.getElementById(`quiz-ans-${i}`).value);
-
-                newQuizzes.push({
-                    quiz_id: maxQuizId,
-                    session_id: newSessionId,
-                    pertanyaan: qText,
-                    pilihan_ganda: [optA, optB, optC, optD],
-                    jawaban_benar: ans
-                });
-            }
-
-            sessionsTable.push(newSession);
-            quizzesTable.push(...newQuizzes);
-            saveLocalStorageData();
-
-            if (supabaseClient) {
-                try {
-                    await supabaseClient.from('sessions').insert([newSession]);
-                    await supabaseClient.from('quizzes').insert(newQuizzes);
-                } catch (err) {
-                    console.warn('Gagal insert sesi/kuis di Supabase:', err);
-                }
-            }
-
-            showToast('Sesi baru dan 10 kuis berhasil disimpan!', 'success');
-            navigateTo('course_guru');
-        };
-
-        function getStudentDashboardHTML() {
-            return `
-                <div class="flex-1 bg-slate-50 overflow-y-auto custom-scrollbar p-5 sm:p-8">
-                    <div class="max-w-6xl mx-auto space-y-6">
-                        <!-- Hero Banner Siswa -->
-                        <div class="bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                            <div>
-                                <span class="bg-blue-400/30 text-blue-100 text-xs font-bold px-3 py-1 rounded-full uppercase">Selamat Belajar</span>
-                                <h1 class="text-2xl sm:text-3xl font-extrabold mt-2">Halo, ${state.user.nama_lengkap}! 🚀</h1>
-                                <p class="text-blue-100 text-sm mt-1">Masukkan token dari guru untuk membuka topik pembelajaran dan raih sertifikat resmi.</p>
-                            </div>
-                            <button onclick="manualSyncSupabase()" class="bg-white/10 hover:bg-white/20 text-white border border-white/20 font-bold py-2.5 px-4 rounded-xl transition flex items-center gap-2 text-sm shrink-0">
-                                <i class="ph-bold ph-cloud-arrow-down text-base"></i> Tarik Data (Sync)
-                            </button>
-                        </div>
-
-                        <!-- Topik Kursus Tersedia (Theme Responsive + Token Protection) -->
-                        <div>
-                            <div class="flex justify-between items-center mb-4">
-                                <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                    <i class="ph-fill ph-books text-blue-600"></i> Topik Kursus Pembelajaran
-                                </h2>
-                                <span class="text-xs text-slate-500 font-medium">${coursesTable.length} Topik Tersedia</span>
-                            </div>
-
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                                ${coursesTable.map(c => {
-                                    const isUnlocked = DB.isCourseUnlockedForStudent(state.user.user_id, c.course_id);
-                                    const pct = isUnlocked ? DB.getCourseProgressPercent(state.user.user_id, c.course_id) : 0;
-                                    const instructor = usersTable.find(u => Number(u.user_id) === Number(c.guru_id));
-                                    const themeCfg = getThemeConfig(c.theme);
-
-                                    return `
-                                        <div class="group bg-white rounded-3xl border ${themeCfg.cardAccent} p-5 shadow-xs flex flex-col justify-between hover:shadow-lg transition-all duration-200 relative overflow-hidden">
-                                            <div class="h-1.5 w-full bg-gradient-to-r ${themeCfg.gradient} absolute top-0 left-0"></div>
-
-                                            <div>
-                                                <div class="flex justify-between items-start mb-3 pt-1">
-                                                    <span class="text-[11px] font-bold ${themeCfg.badgeBg} px-2.5 py-1 rounded-md">Topik #${c.course_id}</span>
-                                                    
-                                                    ${isUnlocked ? `
-                                                        <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                                                            <i class="ph-bold ph-lock-key-open"></i> Terbuka (${pct}%)
-                                                        </span>
-                                                    ` : `
-                                                        <span class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                                                            <i class="ph-bold ph-lock-key"></i> Terkunci Token
-                                                        </span>
-                                                    `}
-                                                </div>
-
-                                                <h3 class="font-bold text-slate-900 text-base mb-1 leading-snug">${c.judul_kursus}</h3>
-                                                <p class="text-xs text-slate-500 mb-3 line-clamp-2 leading-relaxed">${c.deskripsi_singkat}</p>
-                                                <p class="text-xs text-slate-400 mb-4 flex items-center gap-1">
-                                                    <i class="ph-bold ph-chalkboard-teacher text-indigo-500"></i> Guru: ${instructor ? instructor.nama_lengkap : 'Instruktur Ahli'}
-                                                </p>
-                                            </div>
-
-                                            <div>
-                                                ${isUnlocked ? `
-                                                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden mb-3">
-                                                        <div class="bg-gradient-to-r ${themeCfg.gradient} h-full rounded-full transition-all duration-300" style="width: ${pct}%"></div>
-                                                    </div>
-                                                    <button onclick="navigateTo('course_siswa', {courseId: ${c.course_id}})" class="w-full ${themeCfg.btnBg} font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-xs">
-                                                        <span>Buka Materi Silabus</span> <i class="ph-bold ph-arrow-right"></i>
-                                                    </button>
-                                                ` : `
-                                                    <div class="bg-amber-50/80 border border-amber-200 rounded-xl p-2.5 mb-3 flex items-center justify-between text-xs text-amber-800">
-                                                        <span class="font-medium flex items-center gap-1.5">
-                                                            <i class="ph-bold ph-shield-check text-base text-amber-600"></i> Memerlukan Izin Masuk
-                                                        </span>
-                                                        <span class="text-[10px] font-bold bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-md">Token Guru</span>
-                                                    </div>
-                                                    <button onclick="promptCourseTokenModal(${c.course_id})" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-xs">
-                                                        <i class="ph-bold ph-key"></i>
-                                                        <span>Masukkan Token Masuk</span>
-                                                    </button>
-                                                `}
-                                            </div>
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        window.promptCourseTokenModal = function(courseId) {
-            const course = coursesTable.find(c => Number(c.course_id) === Number(courseId));
-            if (!course) return;
-
-            const instructor = usersTable.find(u => Number(u.user_id) === Number(course.guru_id));
-
-            modalContainer.innerHTML = `
-                <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 fade-in">
-                    <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 sm:p-7 border border-slate-100 text-center">
-                        <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-3xl flex items-center justify-center text-3xl mx-auto mb-4 shadow-sm">
-                            <i class="ph-bold ph-key"></i>
-                        </div>
-                        
-                        <h3 class="text-xl font-extrabold text-slate-900 mb-1">Izin Masuk Topik Pembelajaran</h3>
-                        <p class="text-xs text-slate-500 mb-4">
-                            Materi <strong>${course.judul_kursus}</strong> diproteksi. Masukkan token akses yang diberikan oleh guru pengampu (${instructor ? instructor.nama_lengkap : 'Guru'}).
-                        </p>
-
-                        <form onsubmit="handleVerifyCourseToken(event, ${course.course_id})" class="space-y-4">
-                            <div>
-                                <input type="text" id="input-token-val" required placeholder="Contoh: ITL-1101" autofocus class="w-full border-2 border-amber-300 focus:border-amber-500 bg-amber-50/40 rounded-2xl py-3 px-4 text-center font-mono font-extrabold text-lg uppercase tracking-widest text-slate-800 outline-none transition">
-                                <p class="text-[11px] text-slate-400 mt-1.5">Tidak sensitif huruf besar/kecil (Case-Insensitive).</p>
-                            </div>
-
-                            <div class="flex gap-2.5 pt-2">
-                                <button type="button" onclick="closeModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl transition text-xs">
-                                    Batal
-                                </button>
-                                <button type="submit" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-extrabold py-2.5 rounded-xl transition text-xs shadow-md flex items-center justify-center gap-1.5">
-                                    <i class="ph-bold ph-lock-key-open text-base"></i>
-                                    <span>Verifikasi & Buka</span>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            `;
-        };
-
-        window.handleVerifyCourseToken = function(e, courseId) {
-            e.preventDefault();
-            const course = coursesTable.find(c => Number(c.course_id) === Number(courseId));
-            if (!course) return;
-
-            const inputVal = (document.getElementById('input-token-val').value || '').trim().toUpperCase();
-            const validToken = (course.token_akses || '').trim().toUpperCase();
-
-            if (inputVal === validToken) {
-                DB.unlockCourseForStudent(state.user.user_id, course.course_id);
-                closeModal();
-                showToast(`Token benar! Selamat datang di "${course.judul_kursus}".`, 'success');
-                confetti({ particleCount: 100, spread: 60, origin: { y: 0.6 } });
-                navigateTo('course_siswa', { courseId: course.course_id });
-            } else {
-                showToast('Token salah atau belum diizinkan oleh Guru! Silakan hubungi pengampu materi.', 'error');
-            }
-        };
-
-        function getStudentCourseHTML() {
-            const course = coursesTable.find(c => Number(c.course_id) === Number(state.activeCourseId));
-            if (!course) return '<div class="p-8">Topik tidak ditemukan.</div>';
-
-            // Double check security
-            if (!DB.isCourseUnlockedForStudent(state.user.user_id, course.course_id)) {
-                return `
-                    <div class="flex-1 flex flex-col items-center justify-center p-6 text-center">
-                        <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-3xl mb-4">
-                            <i class="ph-bold ph-lock"></i>
-                        </div>
-                        <h2 class="text-xl font-bold text-slate-800 mb-2">Akses Terkunci</h2>
-                        <p class="text-xs text-slate-500 max-w-md mb-4">Anda belum memasukkan token izin masuk untuk topik ini.</p>
-                        <button onclick="navigateTo('dashboard')" class="bg-blue-600 text-white text-xs font-bold py-2.5 px-5 rounded-xl">Kembali ke Beranda</button>
-                    </div>
-                `;
-            }
-
-            const sessions = DB.getCourseSessions(course.course_id);
-            const pct = DB.getCourseProgressPercent(state.user.user_id, course.course_id);
-            const isFinished = pct === 100 && sessions.length > 0;
-            const instructor = usersTable.find(u => Number(u.user_id) === Number(course.guru_id));
-            const themeCfg = getThemeConfig(course.theme);
-
-            return `
-                <div class="flex-1 bg-slate-50 overflow-y-auto custom-scrollbar p-5 sm:p-8">
-                    <div class="max-w-4xl mx-auto space-y-6">
-                        <button onclick="navigateTo('dashboard')" class="text-blue-600 hover:underline flex items-center gap-1.5 font-bold text-sm">
-                            <i class="ph-bold ph-arrow-left"></i> Kembali ke Beranda Siswa
-                        </button>
-
-                        <!-- Banner Kursus Siswa -->
-                        <div class="bg-white p-6 sm:p-8 rounded-3xl border ${themeCfg.cardAccent} shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden">
-                            <div class="h-1.5 w-full bg-gradient-to-r ${themeCfg.gradient} absolute top-0 left-0"></div>
-
-                            <div class="pt-1">
-                                <span class="text-xs font-bold ${themeCfg.badgeBg} px-2.5 py-0.5 rounded-full uppercase">Topik #${course.course_id}</span>
-                                <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-800 mt-2">${course.judul_kursus}</h1>
-                                <p class="text-xs text-slate-500 mt-1 max-w-xl">${course.deskripsi_singkat}</p>
-                                <p class="text-xs font-semibold text-slate-600 mt-2">Instruktur: ${instructor ? instructor.nama_lengkap : 'Tim Pengajar'}</p>
-                            </div>
-                            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-center shrink-0 w-full md:w-44">
-                                <span class="text-xs font-semibold text-slate-700">Total Progres</span>
-                                <div class="text-3xl font-extrabold text-slate-900 my-1">${pct}%</div>
-                                <span class="text-[11px] text-emerald-600 font-medium">${isFinished ? 'Tuntas Terlaksana' : 'Sedang Berjalan'}</span>
-                            </div>
-                        </div>
-
-                        <!-- Banner Sertifikat Kelulusan Siswa -->
-                        <div class="p-6 rounded-3xl border ${isFinished ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-700'} flex flex-col sm:flex-row justify-between items-center gap-4">
-                            <div class="flex items-center gap-4 text-center sm:text-left">
-                                <div class="w-14 h-14 ${isFinished ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-600'} rounded-2xl flex items-center justify-center text-3xl shrink-0">
-                                    <i class="ph-bold ph-certificate"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-lg font-extrabold ${isFinished ? 'text-white' : 'text-slate-900'}">Sertifikat Kelulusan Siswa</h3>
-                                    <p class="text-xs ${isFinished ? 'text-amber-100' : 'text-slate-500'}">
-                                        ${isFinished ? 'Selamat! Anda telah lulus seluruh evaluasi kuis dengan nilai memenuhi KKM.' : 'Selesaikan seluruh urutan sesi pembelajaran untuk membuka sertifikat digital.'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            ${isFinished ? `
-                                <button onclick="downloadStudentCertificate(${course.course_id})" class="bg-white text-amber-900 hover:bg-amber-50 font-extrabold py-3 px-6 rounded-xl shadow transition text-xs shrink-0 flex items-center gap-2">
-                                    <i class="ph-bold ph-download-simple text-base"></i> Cetak / Unduh Sertifikat PDF
-                                </button>
-                            ` : `
-                                <button disabled class="bg-slate-100 text-slate-400 font-bold py-2.5 px-5 rounded-xl text-xs cursor-not-allowed border border-slate-200 flex items-center gap-2">
-                                    <i class="ph-bold ph-lock-key"></i> Terkunci (Belum 100%)
-                                </button>
-                            `}
-                        </div>
-
-                        <!-- Urutan Sesi (Linear Locking) -->
-                        <div class="space-y-3">
-                            <h3 class="font-bold text-slate-800 flex items-center gap-2">
-                                <i class="ph-bold ph-list-checks text-blue-600"></i> Alur Belajar Linier
-                            </h3>
-
-                            ${sessions.map(s => {
-                                const isLocked = DB.isSessionLocked(state.user.user_id, course.course_id, s.urutan_sesi);
-                                const progress = userProgressTable.find(p => Number(p.user_id) === Number(state.user.user_id) && Number(p.session_id) === Number(s.session_id));
-                                const isDone = progress && progress.status_sesi === 'Selesai';
-
-                                return `
-                                    <div class="p-4 sm:p-5 rounded-2xl border transition-all flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 ${
-                                        isLocked ? 'bg-slate-100/70 border-slate-200 opacity-60' : 'bg-white border-slate-200 hover:border-blue-400 shadow-xs'
-                                    }">
-                                        <div class="flex items-center gap-4">
-                                            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 ${
-                                                isDone ? 'bg-emerald-100 text-emerald-600' : (isLocked ? 'bg-slate-200 text-slate-400' : 'bg-blue-100 text-blue-600')
-                                            }">
-                                                <i class="ph-bold ${isDone ? 'ph-check-circle' : (isLocked ? 'ph-lock' : 'ph-play')}"></i>
-                                            </div>
-                                            <div>
-                                                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Sesi ${s.urutan_sesi} • KKM: ${s.kkm_kuis}</span>
-                                                <h4 class="font-bold text-slate-800 text-sm line-clamp-1">${s.deskripsi_modul}</h4>
-                                            </div>
-                                        </div>
-
-                                        <div class="w-full sm:w-auto flex justify-end">
-                                            ${isDone ? `
-                                                <button onclick="navigateTo('session_siswa', {sessionId: ${s.session_id}})" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-4 py-2 rounded-xl text-xs transition flex items-center gap-1.5 border border-emerald-200">
-                                                    <i class="ph-bold ph-eye"></i> Tinjau Ulang (Skor: ${progress.skor_kuis})
-                                                </button>
-                                            ` : (!isLocked ? `
-                                                <button onclick="navigateTo('session_siswa', {sessionId: ${s.session_id}})" class="${themeCfg.btnBg} font-bold px-5 py-2 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5">
-                                                    <span>Mulai Belajar</span> <i class="ph-bold ph-arrow-right"></i>
-                                                </button>
-                                            ` : `
-                                                <span class="text-xs text-slate-400 italic">Selesaikan sesi sebelumnya</span>
-                                            `)}
-                                        </div>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
 
         function getStudentSessionHTML() {
             const session = sessionsTable.find(s => Number(s.session_id) === Number(state.activeSessionId));
@@ -2413,7 +1212,7 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                         <div class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xs space-y-5">
                             <div>
                                 <span class="text-xs font-bold text-blue-600 uppercase tracking-wider">Sesi ke-${session.urutan_sesi}</span>
-                                <h1 class="text-2xl font-extrabold text-slate-800 mt-1">${course.judul_kursus}</h1>
+                                <h1 class="text-2xl font-black text-slate-800 mt-1">${course.judul_kursus}</h1>
                                 <p class="text-sm text-slate-600 mt-2 leading-relaxed">${session.deskripsi_modul}</p>
                             </div>
 
@@ -2549,182 +1348,6 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
             `;
         }
 
-        window.handleChooseAnswer = function(quizId, optIdx) {
-            state.quizState.answers[quizId] = optIdx;
-            render();
-        };
-
-        window.handleQuizNav = function(step) {
-            state.quizState.currentIndex += step;
-            render();
-        };
-
-        window.handleRetryQuiz = function(sessionId) {
-            initQuizState(sessionId, true);
-            render();
-        };
-
-        window.handleSubmitQuiz = async function(sessionId) {
-            const session = sessionsTable.find(s => Number(s.session_id) === Number(sessionId));
-            const quizzes = state.quizState.questions;
-
-            const answeredCount = Object.keys(state.quizState.answers).length;
-            if (answeredCount < quizzes.length) {
-                showToast(`Harap selesaikan seluruh ${quizzes.length} soal sebelum mengumpulkan!`, 'warning');
-                return;
-            }
-
-            let correctCount = 0;
-            quizzes.forEach(q => {
-                if (state.quizState.answers[q.quiz_id] === q.jawaban_benar) {
-                    correctCount++;
-                }
-            });
-
-            const score = Math.round((correctCount / quizzes.length) * 100);
-
-            if (score >= session.kkm_kuis) {
-                let existing = userProgressTable.find(p => Number(p.user_id) === Number(state.user.user_id) && Number(p.session_id) === Number(sessionId));
-                if (existing) {
-                    existing.skor_kuis = score;
-                    existing.status_sesi = 'Selesai';
-                } else {
-                    const maxProgId = userProgressTable.reduce((m, p) => Math.max(m, Number(p.progress_id) || 0), 0);
-                    existing = {
-                        progress_id: maxProgId + 1,
-                        user_id: state.user.user_id,
-                        session_id: sessionId,
-                        skor_kuis: score,
-                        status_sesi: 'Selesai'
-                    };
-                    userProgressTable.push(existing);
-                }
-
-                saveLocalStorageData();
-
-                if (supabaseClient) {
-                    try {
-                        await supabaseClient.from('user_progress').upsert([existing]);
-                    } catch (e) {
-                        console.warn('Gagal simpan progres di Supabase:', e);
-                    }
-                }
-
-                showToast(`Selamat! Anda LULUS dengan nilai ${score}!`, 'success');
-                confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
-                render();
-            } else {
-                state.quizState.lastScore = score;
-                state.quizState.showResultScreen = true;
-                render();
-            }
-        };
-
-        window.downloadStudentCertificate = function(courseId) {
-            const course = coursesTable.find(c => Number(c.course_id) === Number(courseId));
-            const instructor = usersTable.find(u => Number(u.user_id) === Number(course.guru_id)) || state.user;
-            const instansiName = instructor.instansi || 'RuruAlbernEdu LMS Platform';
-            const signatureImg = instructor.ttd_url || '';
-            const studentName = state.user.nama_lengkap;
-            const courseTitle = course.judul_kursus;
-            const dateStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-
-            doc.setFillColor(255, 255, 255);
-            doc.rect(0, 0, 297, 210, 'F');
-
-            doc.setDrawColor(217, 119, 6);
-            doc.setLineWidth(3);
-            doc.rect(10, 10, 277, 190);
-
-            doc.setDrawColor(245, 158, 11);
-            doc.setLineWidth(1);
-            doc.rect(14, 14, 269, 182);
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(14);
-            doc.setTextColor(180, 83, 9);
-            doc.text(instansiName.toUpperCase(), 148.5, 30, { align: 'center' });
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(28);
-            doc.setTextColor(15, 23, 42);
-            doc.text("SERTIFIKAT KELULUSAN", 148.5, 48, { align: 'center' });
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(11);
-            doc.setTextColor(100, 116, 139);
-            doc.text("Nomor Sertifikat: CERT/RAE/" + courseId + "/" + state.user.user_id + "/" + Date.now().toString().slice(-6), 148.5, 56, { align: 'center' });
-
-            doc.setFontSize(12);
-            doc.setTextColor(51, 65, 85);
-            doc.text("Diberikan dengan penuh kehormatan kepada:", 148.5, 75, { align: 'center' });
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(26);
-            doc.setTextColor(30, 58, 138);
-            doc.text(studentName, 148.5, 92, { align: 'center' });
-
-            doc.setDrawColor(203, 213, 225);
-            doc.setLineWidth(0.5);
-            doc.line(75, 96, 222, 96);
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(12);
-            doc.setTextColor(51, 65, 85);
-            doc.text("Telah menyelesaikan seluruh rangkaian modul, evaluasi, dan memenuhi syarat KKM pada program:", 148.5, 110, { align: 'center' });
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(18);
-            doc.setTextColor(15, 23, 42);
-            doc.text(`"${courseTitle}"`, 148.5, 124, { align: 'center' });
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(11);
-            doc.setTextColor(71, 85, 105);
-            doc.text(`Diterbitkan pada tanggal: ${dateStr}`, 148.5, 138, { align: 'center' });
-
-            const signX = 205;
-            const signY = 150;
-
-            if (signatureImg && signatureImg.startsWith('data:image')) {
-                try {
-                    doc.addImage(signatureImg, 'PNG', signX - 25, signY, 50, 20);
-                } catch (e) {
-                    doc.text("[ Tanda Tangan Terverifikasi ]", signX, signY + 12, { align: 'center' });
-                }
-            } else {
-                doc.setFont("courier", "italic");
-                doc.setFontSize(14);
-                doc.setTextColor(30, 58, 138);
-                doc.text(instructor.nama_lengkap, signX, signY + 12, { align: 'center' });
-            }
-
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(11);
-            doc.setTextColor(15, 23, 42);
-            doc.text(instructor.nama_lengkap, signX, signY + 28, { align: 'center' });
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(9);
-            doc.setTextColor(100, 116, 139);
-            doc.text("Instruktur Pembimbing", signX, signY + 33, { align: 'center' });
-
-            doc.setDrawColor(217, 119, 6);
-            doc.setFillColor(254, 243, 199);
-            doc.circle(70, 165, 14, 'FD');
-            doc.setFontSize(8);
-            doc.setFont("helvetica", "bold");
-            doc.setTextColor(180, 83, 9);
-            doc.text("RESMI", 70, 163, { align: 'center' });
-            doc.text("LULUS", 70, 168, { align: 'center' });
-
-            doc.save(`Sertifikat_${studentName.replace(/\s+/g, '_')}_${courseTitle.replace(/\s+/g, '_')}.pdf`);
-            showToast('Sertifikat resmi berhasil diunduh dalam format PDF!', 'success');
-        };
-
         function navigateTo(view, data = {}) {
             if (data.courseId) state.activeCourseId = data.courseId;
             if (data.sessionId) {
@@ -2747,7 +1370,7 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
             state.quizState.lastScore = 0;
         }
 
-        window.handleLoginSubmit = function(e) {
+        function handleLoginSubmit(e) {
             e.preventDefault();
             const email = document.getElementById('login-email').value.trim().toLowerCase();
             const pass = document.getElementById('login-password').value.trim();
@@ -2759,22 +1382,23 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                 state.currentView = 'dashboard';
                 showToast(`Selamat datang, ${user.nama_lengkap}!`, 'success');
                 render();
+                manualSyncSupabase(true);
             } else {
                 showToast('Email atau kata sandi tidak cocok!', 'error');
             }
-        };
+        }
 
-        window.handleLogout = function() {
+        function handleLogout() {
             state.user = null;
             state.currentView = 'login';
             showToast('Anda telah keluar dari akun.', 'info');
             render();
-        };
+        }
 
         function render() {
             appRoot.innerHTML = '';
             const container = document.createElement('div');
-            container.className = 'w-full h-full fade-in flex flex-col';
+            container.className = 'w-full h-full fade-in flex flex-col overflow-hidden';
 
             if (state.currentView === 'login') {
                 container.innerHTML = getLoginHTML();
