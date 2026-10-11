@@ -1193,6 +1193,759 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
             render();
         };
 
+        window.closeModal = function() {
+            modalContainer.innerHTML = '';
+        };
+
+        window.openChangeThemeModal = function(courseId) {
+            const course = coursesTable.find(c => Number(c.course_id) === Number(courseId));
+            if (!course) return;
+
+            modalContainer.innerHTML = `
+                <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 fade-in">
+                    <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 sm:p-7 border border-slate-100">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                            <h3 class="text-lg font-black text-slate-800 flex items-center gap-2">
+                                <i class="ph-bold ph-palette text-indigo-600"></i>
+                                Ganti Tema Visual Topik
+                            </h3>
+                            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-4">Pilih nuansa warna kartu topik untuk <strong>"${course.judul_kursus}"</strong>:</p>
+                        
+                        <div class="grid grid-cols-2 gap-2.5 mb-6">
+                            ${Object.values(THEME_OPTIONS).map(thm => `
+                                <div onclick="applyCourseTheme(${course.course_id}, '${thm.id}')" class="p-3 rounded-2xl border ${course.theme === thm.id ? 'border-slate-900 ring-2 ring-slate-900 bg-slate-50' : 'border-slate-200 hover:border-slate-400'} cursor-pointer transition flex items-center gap-2.5">
+                                    <span class="w-6 h-6 rounded-xl bg-gradient-to-tr ${thm.gradient} shrink-0 shadow-xs"></span>
+                                    <div class="min-w-0">
+                                        <p class="text-xs font-bold text-slate-800 truncate">${thm.nama}</p>
+                                        <span class="text-[10px] text-slate-400">${course.theme === thm.id ? 'Aktif Saat Ini' : 'Pilih'}</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                        <div class="flex justify-end">
+                            <button onclick="closeModal()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+                                Selesai
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        window.applyCourseTheme = async function(courseId, themeKey) {
+            const course = coursesTable.find(c => Number(c.course_id) === Number(courseId));
+            if (!course) return;
+
+            course.theme = themeKey;
+            localStorage.setItem(`lms_theme_${courseId}`, themeKey);
+            saveLocalStorageData();
+
+            if (supabaseClient) {
+                await uploadSingleCourseToCloud(course);
+            }
+
+            closeModal();
+            showToast(`Tema visual diperbarui ke "${getThemeConfig(themeKey).nama}"!`, 'success');
+            render();
+        };
+
+        window.openEditTopicModal = function(courseId) {
+            const course = coursesTable.find(c => Number(c.course_id) === Number(courseId));
+            if (!course) return;
+
+            modalContainer.innerHTML = `
+                <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 fade-in">
+                    <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 sm:p-7 border border-slate-100">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                            <h3 class="text-lg font-black text-slate-800 flex items-center gap-2">
+                                <i class="ph-bold ph-pencil-simple text-indigo-600"></i>
+                                Edit Topik Pembelajaran
+                            </h3>
+                            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+                        </div>
+                        <form onsubmit="handleSaveEditedTopic(event, ${courseId})" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Judul Topik</label>
+                                <input id="edit-topic-title" type="text" required value="${course.judul_kursus}" class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Deskripsi Singkat</label>
+                                <textarea id="edit-topic-desc" rows="3" required class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none">${course.deskripsi_singkat}</textarea>
+                            </div>
+                            <div class="bg-amber-50/70 border border-amber-200 p-3.5 rounded-2xl">
+                                <label class="block text-xs font-bold text-amber-900 uppercase mb-1">Token Akses Masuk</label>
+                                <div class="flex gap-2">
+                                    <input id="edit-topic-token" type="text" required value="${course.token_akses || generateRandomToken('EDU')}" class="flex-1 font-mono uppercase tracking-wider font-bold border border-amber-300 rounded-xl px-3 py-2 text-xs bg-white outline-none">
+                                    <button type="button" onclick="document.getElementById('edit-topic-token').value = generateRandomToken('EDU')" class="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs transition">Acak</button>
+                                </div>
+                            </div>
+                            <div class="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
+                                <button type="button" onclick="closeModal()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">Batal</button>
+                                <button type="submit" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition shadow-md">Simpan Perubahan</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+        };
+
+        window.handleSaveEditedTopic = async function(e, courseId) {
+            e.preventDefault();
+            const course = coursesTable.find(c => Number(c.course_id) === Number(courseId));
+            if (!course) return;
+
+            course.judul_kursus = document.getElementById('edit-topic-title').value.trim();
+            course.deskripsi_singkat = document.getElementById('edit-topic-desc').value.trim();
+            course.token_akses = document.getElementById('edit-topic-token').value.trim().toUpperCase();
+
+            localStorage.setItem(`lms_token_${courseId}`, course.token_akses);
+            saveLocalStorageData();
+
+            if (supabaseClient) {
+                showToast('Menyinkronkan perubahan topik ke cloud...', 'info');
+                await uploadSingleCourseToCloud(course);
+            }
+
+            closeModal();
+            showToast('Topik pembelajaran berhasil diperbarui!', 'success');
+            render();
+        };
+
+        window.promptCourseTokenModal = function(courseId) {
+            const course = coursesTable.find(c => Number(c.course_id) === Number(courseId));
+            if (!course) return;
+
+            modalContainer.innerHTML = `
+                <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 fade-in">
+                    <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 text-center border border-slate-100">
+                        <div class="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-3">
+                            <i class="ph-bold ph-key"></i>
+                        </div>
+                        <h3 class="text-lg font-black text-slate-900 mb-1">Masukkan Token Izin Masuk</h3>
+                        <p class="text-xs text-slate-500 mb-4">Minta token pendaftaran untuk topik <strong>"${course.judul_kursus}"</strong> kepada Guru atau Pengampu Anda.</p>
+                        
+                        <form onsubmit="handleVerifyCourseToken(event, ${courseId})" class="space-y-3">
+                            <input id="input-verify-token" type="text" required placeholder="Contoh: ${course.token_akses || 'EDU-1234'}" class="w-full text-center tracking-widest text-base font-mono uppercase px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:bg-white focus:border-indigo-600 focus:outline-none">
+                            <div class="flex gap-2 pt-2">
+                                <button type="button" onclick="closeModal()" class="flex-1 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">Batal</button>
+                                <button type="submit" class="flex-1 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md transition flex items-center justify-center gap-1.5">
+                                    <i class="ph-bold ph-lock-key-open"></i> Buka Topik
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+        };
+
+        window.handleVerifyCourseToken = function(e, courseId) {
+            e.preventDefault();
+            const course = coursesTable.find(c => Number(c.course_id) === Number(courseId));
+            if (!course) return;
+
+            const inputVal = document.getElementById('input-verify-token').value.trim().toUpperCase();
+            if (inputVal === (course.token_akses || '').toUpperCase()) {
+                DB.unlockCourseForStudent(state.user.user_id, courseId);
+                closeModal();
+                if (typeof confetti === 'function') confetti({ particleCount: 75, spread: 65, origin: { y: 0.6 } });
+                showToast('Token valid! Topik pembelajaran berhasil dibuka.', 'success');
+                navigateTo('course_siswa', { courseId: courseId });
+            } else {
+                showToast('Token salah! Silakan periksa kembali dengan guru Anda.', 'error');
+            }
+        };
+
+        window.openBulkImportModal = function() {
+            modalContainer.innerHTML = `
+                <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 fade-in">
+                    <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 sm:p-7 border border-slate-100">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                            <h3 class="text-lg font-black text-slate-800 flex items-center gap-2">
+                                <i class="ph-bold ph-users-three text-teal-600"></i>
+                                Upload Siswa Massal
+                            </h3>
+                            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-3">Tempelkan data siswa (format: <code>Nama Lengkap, Email, Password</code> per baris):</p>
+                        
+                        <form onsubmit="handleExecuteBulkImport(event)" class="space-y-3">
+                            <textarea id="bulk-import-text" required rows="6" class="w-full border border-slate-300 rounded-xl p-3 text-xs font-mono outline-none focus:ring-2 focus:ring-teal-500 resize-none custom-scrollbar" placeholder="Ahmad Fauzan, ahmad@siswa.com, 123&#10;Siti Rahma, siti@siswa.com, 123&#10;Budi Pratama, budi@siswa.com, 123"></textarea>
+                            <div class="flex justify-end gap-2.5 pt-2">
+                                <button type="button" onclick="closeModal()" class="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">Batal</button>
+                                <button type="submit" class="px-5 py-2 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl shadow-md transition flex items-center gap-1.5">
+                                    <i class="ph-bold ph-user-plus"></i> Import Semua Siswa
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+        };
+
+        window.handleExecuteBulkImport = async function(e) {
+            e.preventDefault();
+            const text = document.getElementById('bulk-import-text').value.trim();
+            const lines = text.split('\n').filter(l => l.trim().length > 0);
+            let addedCount = 0;
+
+            const newUsers = [];
+            let maxId = usersTable.reduce((m, u) => Math.max(m, Number(u.user_id) || 0), 10);
+
+            lines.forEach(line => {
+                const parts = line.split(',').map(p => p.trim());
+                if (parts.length >= 2) {
+                    const name = parts[0];
+                    const email = parts[1].toLowerCase();
+                    const pass = parts[2] || '123';
+
+                    if (!usersTable.some(u => u.email.toLowerCase() === email)) {
+                        maxId++;
+                        const uObj = { user_id: maxId, nama_lengkap: name, email: email, password: pass, role: 'Siswa', instansi: state.user.instansi || '', ttd_url: '' };
+                        usersTable.push(uObj);
+                        newUsers.push(uObj);
+                        addedCount++;
+                    }
+                }
+            });
+
+            saveLocalStorageData();
+            if (supabaseClient && newUsers.length > 0) {
+                try {
+                    await supabaseClient.from('users').upsert(newUsers);
+                } catch (err) {
+                    console.warn('Gagal sync bulk user:', err);
+                }
+            }
+
+            closeModal();
+            showToast(`${addedCount} akun siswa berhasil ditambahkan & disinkronkan!`, 'success');
+            render();
+        };
+
+        window.handleChooseAnswer = function(quizId, optionIndex) {
+            state.quizState.answers[quizId] = optionIndex;
+            render();
+        };
+
+        window.handleQuizNav = function(direction) {
+            const newIdx = state.quizState.currentIndex + direction;
+            if (newIdx >= 0 && newIdx < state.quizState.questions.length) {
+                state.quizState.currentIndex = newIdx;
+                render();
+            }
+        };
+
+        window.handleRetryQuiz = function(sessionId) {
+            initQuizState(sessionId, true);
+            render();
+        };
+
+        window.handleSubmitQuiz = async function(sessionId) {
+            const session = sessionsTable.find(s => Number(s.session_id) === Number(sessionId));
+            if (!session) return;
+
+            const questions = state.quizState.questions;
+            let correctCount = 0;
+
+            questions.forEach(q => {
+                if (state.quizState.answers[q.quiz_id] === q.jawaban_benar) {
+                    correctCount++;
+                }
+            });
+
+            const score = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+            state.quizState.lastScore = score;
+
+            if (score >= session.kkm_kuis) {
+                let prog = userProgressTable.find(p => Number(p.user_id) === Number(state.user.user_id) && Number(p.session_id) === Number(sessionId));
+                if (!prog) {
+                    const newProgId = Date.now();
+                    prog = { progress_id: newProgId, user_id: Number(state.user.user_id), session_id: Number(sessionId), skor_kuis: score, status_sesi: 'Selesai' };
+                    userProgressTable.push(prog);
+                } else {
+                    prog.skor_kuis = Math.max(prog.skor_kuis || 0, score);
+                    prog.status_sesi = 'Selesai';
+                }
+
+                saveLocalStorageData();
+                if (supabaseClient) {
+                    try {
+                        await supabaseClient.from('user_progress').upsert([prog]);
+                    } catch (e) {
+                        console.warn('Sync progress:', e);
+                    }
+                }
+
+                if (typeof confetti === 'function') confetti({ particleCount: 100, spread: 80, origin: { y: 0.6 } });
+                showToast(`Selamat! Anda LULUS dengan nilai ${score}!`, 'success');
+            } else {
+                state.quizState.showResultScreen = true;
+                showToast(`Nilai ${score} belum mencapai KKM (${session.kkm_kuis}). Silakan coba lagi.`, 'warning');
+            }
+
+            render();
+        };
+
+        function getStudentCourseHTML() {
+            const course = coursesTable.find(c => Number(c.course_id) === Number(state.activeCourseId));
+            if (!course) return '<div class="p-8">Topik tidak ditemukan.</div>';
+
+            const sessions = DB.getCourseSessions(course.course_id);
+            const userProg = DB.getUserProgressForCourse(state.user.user_id, course.course_id);
+            const progressPct = DB.getCourseProgressPercent(state.user.user_id, course.course_id);
+            const isCompletedAll = sessions.length > 0 && progressPct === 100;
+            const themeCfg = getThemeConfig(course.theme);
+            const instructor = usersTable.find(u => Number(u.user_id) === Number(course.guru_id));
+
+            return `
+                <div class="flex-1 bg-slate-50 overflow-y-auto custom-scrollbar p-5 sm:p-8">
+                    <div class="max-w-4xl mx-auto space-y-6">
+                        <button onclick="navigateTo('dashboard')" class="text-indigo-600 hover:underline flex items-center gap-1.5 font-bold text-sm">
+                            <i class="ph-bold ph-arrow-left"></i> Kembali ke Dasbor
+                        </button>
+
+                        <div class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-xs relative overflow-hidden">
+                            <div class="h-2 w-full bg-gradient-to-r ${themeCfg.gradient} absolute top-0 left-0"></div>
+                            <div class="flex justify-between items-start mb-2 pt-2">
+                                <span class="text-xs font-bold ${themeCfg.badgeBg} px-3 py-1 rounded-full">Topik #${course.course_id}</span>
+                                <span class="text-xs font-bold text-slate-500">Progres: ${progressPct}%</span>
+                            </div>
+                            <h1 class="text-2xl font-black text-slate-900">${course.judul_kursus}</h1>
+                            <p class="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed">${course.deskripsi_singkat}</p>
+                            
+                            <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden mt-4 mb-4">
+                                <div class="bg-gradient-to-r ${themeCfg.gradient} h-full rounded-full transition-all duration-300" style="width: ${progressPct}%"></div>
+                            </div>
+
+                            ${isCompletedAll ? `
+                                <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 bg-emerald-600 text-white rounded-xl flex items-center justify-center text-xl shrink-0">
+                                            <i class="ph-bold ph-certificate"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-bold text-emerald-900 text-sm">Selamat! Anda Telah Menyelesaikan Topik Ini</h4>
+                                            <p class="text-xs text-emerald-700">Sertifikat resmi kelulusan telah diterbitkan.</p>
+                                        </div>
+                                    </div>
+                                    <button onclick="handleDownloadCertificate(${course.course_id})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-5 rounded-xl text-xs transition shadow-md flex items-center gap-2 shrink-0">
+                                        <i class="ph-bold ph-download-simple"></i> Unduh Sertifikat PDF
+                                    </button>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <div class="space-y-3">
+                            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                <i class="ph-bold ph-list-numbers text-indigo-600"></i> Silabus Sesi Pembelajaran (${sessions.length} Sesi)
+                            </h2>
+
+                            ${sessions.map((sess, idx) => {
+                                const isLocked = DB.isSessionLocked(state.user.user_id, course.course_id, sess.urutan_sesi);
+                                const prog = userProg.find(p => Number(p.session_id) === Number(sess.session_id));
+                                const isDone = prog && prog.status_sesi === 'Selesai';
+
+                                return `
+                                    <div class="bg-white p-5 rounded-2xl border ${isDone ? 'border-emerald-200 bg-emerald-50/20' : 'border-slate-200'} shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                        <div class="space-y-1">
+                                            <div class="flex items-center gap-2">
+                                                <span class="px-2.5 py-0.5 rounded-lg text-xs font-bold ${isDone ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}">Sesi ${sess.urutan_sesi}</span>
+                                                <span class="text-xs text-slate-400 font-semibold">KKM: ${sess.kkm_kuis}</span>
+                                                ${isDone ? '<span class="text-xs font-bold text-emerald-600 flex items-center gap-1"><i class="ph-bold ph-check-circle"></i> Tuntas (' + prog.skor_kuis + ')</span>' : ''}
+                                            </div>
+                                            <h4 class="font-bold text-slate-800 text-sm">${sess.deskripsi_modul}</h4>
+                                        </div>
+
+                                        <div>
+                                            ${isLocked ? `
+                                                <button disabled class="px-4 py-2 bg-slate-100 text-slate-400 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-not-allowed">
+                                                    <i class="ph-bold ph-lock"></i> Sesi Terkunci
+                                                </button>
+                                            ` : `
+                                                <button onclick="navigateTo('session_siswa', {sessionId: ${sess.session_id}})" class="px-4 py-2 ${themeCfg.btnBg} rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+                                                    <span>${isDone ? 'Buka Kembali' : 'Mulai Belajar'}</span> <i class="ph-bold ph-arrow-right"></i>
+                                                </button>
+                                            `}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        window.handleDownloadCertificate = function(courseId) {
+            const course = coursesTable.find(c => Number(c.course_id) === Number(courseId));
+            if (!course) return;
+
+            const instructor = usersTable.find(u => Number(u.user_id) === Number(course.guru_id)) || state.user;
+            const instansiName = instructor.instansi || 'RuruAlbernEdu LMS';
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+                // Frame Background & Border
+                doc.setDrawColor(79, 70, 229);
+                doc.setLineWidth(4);
+                doc.rect(10, 10, 277, 190);
+                doc.setDrawColor(203, 213, 225);
+                doc.setLineWidth(1);
+                doc.rect(14, 14, 269, 182);
+
+                // Header
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(26);
+                doc.setTextColor(30, 41, 59);
+                doc.text("SERTIFIKAT KELULUSAN RESMI", 148, 42, { align: 'center' });
+
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(11);
+                doc.setTextColor(100, 116, 139);
+                doc.text(`Nomor Sertifikat: CERT-${course.course_id}-${state.user.user_id}-${Date.now().toString().slice(-4)}`, 148, 50, { align: 'center' });
+
+                doc.setFontSize(12);
+                doc.setTextColor(71, 85, 105);
+                doc.text("Diberikan dengan bangga kepada:", 148, 68, { align: 'center' });
+
+                // Student Name
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(24);
+                doc.setTextColor(79, 70, 229);
+                doc.text(state.user.nama_lengkap.toUpperCase(), 148, 82, { align: 'center' });
+
+                // Description
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(12);
+                doc.setTextColor(51, 65, 85);
+                doc.text(`Telah menyelesaikan seluruh rangkaian sesi pembelajaran dan evaluasi kompetensi pada topik:`, 148, 96, { align: 'center' });
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(16);
+                doc.setTextColor(15, 23, 42);
+                doc.text(`"${course.judul_kursus}"`, 148, 107, { align: 'center' });
+
+                // Institution & Instructor Footer
+                const today = new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(10);
+                doc.text(`Diterbitkan pada: ${today}`, 148, 130, { align: 'center' });
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(12);
+                doc.text(instansiName, 215, 155, { align: 'center' });
+
+                if (instructor.ttd_url && instructor.ttd_url.startsWith('data:image')) {
+                    try {
+                        doc.addImage(instructor.ttd_url, 'PNG', 195, 160, 40, 18);
+                    } catch (e) {
+                        console.warn('Gagal cetak tanda tangan:', e);
+                    }
+                }
+
+                doc.text(instructor.nama_lengkap, 215, 182, { align: 'center' });
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(9);
+                doc.setTextColor(100, 116, 139);
+                doc.text("Instruktur Pembimbing", 215, 187, { align: 'center' });
+
+                doc.save(`Sertifikat_${course.judul_kursus.replace(/\s+/g, '_')}_${state.user.nama_lengkap}.pdf`);
+                showToast('Sertifikat PDF berhasil diunduh!', 'success');
+            } catch (err) {
+                console.error(err);
+                showToast('Gagal mencetak sertifikat PDF.', 'error');
+            }
+        };
+
+        function getTeacherCourseHTML() {
+            const course = coursesTable.find(c => Number(c.course_id) === Number(state.activeCourseId));
+            if (!course) return '<div class="p-8">Topik tidak ditemukan.</div>';
+
+            const sessions = DB.getCourseSessions(course.course_id);
+            const themeCfg = getThemeConfig(course.theme);
+
+            return `
+                <div class="flex-1 bg-slate-50 overflow-y-auto custom-scrollbar p-5 sm:p-8">
+                    <div class="max-w-4xl mx-auto space-y-6">
+                        <button onclick="navigateTo('dashboard')" class="text-indigo-600 hover:underline flex items-center gap-1.5 font-bold text-sm">
+                            <i class="ph-bold ph-arrow-left"></i> Kembali ke Dasbor
+                        </button>
+
+                        <div class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div>
+                                <span class="text-xs font-bold ${themeCfg.badgeBg} px-2.5 py-1 rounded-md">Topik #${course.course_id}</span>
+                                <h1 class="text-2xl font-black text-slate-900 mt-2">${course.judul_kursus}</h1>
+                                <p class="text-xs sm:text-sm text-slate-500 mt-1">${course.deskripsi_singkat}</p>
+                            </div>
+                            <div class="flex gap-2.5">
+                                <button onclick="openEditTopicModal(${course.course_id})" class="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+                                    Edit Topik
+                                </button>
+                                <button onclick="navigateTo('form_sesi', {courseId: ${course.course_id}})" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 shadow-xs">
+                                    <i class="ph-bold ph-plus-circle text-base"></i> Tambah Sesi
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <h3 class="text-base font-bold text-slate-800">Daftar Sesi (${sessions.length} Sesi)</h3>
+                            ${sessions.map(s => `
+                                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex justify-between items-center">
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold">Sesi ${s.urutan_sesi}</span>
+                                            <span class="text-xs text-slate-400 font-semibold">KKM: ${s.kkm_kuis}</span>
+                                        </div>
+                                        <h4 class="font-bold text-slate-800 text-sm mt-1">${s.deskripsi_modul}</h4>
+                                    </div>
+                                    <button onclick="handleDeleteSession(${s.session_id})" class="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition" title="Hapus Sesi">
+                                        <i class="ph-bold ph-trash text-lg"></i>
+                                    </button>
+                                </div>
+                            `).join('')}
+                            ${sessions.length === 0 ? '<div class="p-8 text-center text-slate-400 bg-white rounded-2xl border border-dashed border-slate-300">Belum ada sesi di topik ini.</div>' : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        window.handleDeleteSession = async function(sessionId) {
+            sessionsTable = sessionsTable.filter(s => Number(s.session_id) !== Number(sessionId));
+            quizzesTable = quizzesTable.filter(q => Number(q.session_id) !== Number(sessionId));
+            saveLocalStorageData();
+
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('sessions').delete().eq('session_id', sessionId);
+                    await supabaseClient.from('quizzes').delete().eq('session_id', sessionId);
+                } catch (e) {
+                    console.warn('Delete session Supabase:', e);
+                }
+            }
+
+            showToast('Sesi pembelajaran dihapus.', 'info');
+            render();
+        };
+
+        function getTeacherFormSessionHTML() {
+            const course = coursesTable.find(c => Number(c.course_id) === Number(state.activeCourseId));
+            const nextUrutan = DB.getCourseSessions(state.activeCourseId).length + 1;
+
+            return `
+                <div class="flex-1 bg-slate-50 overflow-y-auto custom-scrollbar p-5 sm:p-8">
+                    <div class="max-w-2xl mx-auto space-y-5">
+                        <button onclick="navigateTo('course_guru', {courseId: ${state.activeCourseId}})" class="text-indigo-600 hover:underline flex items-center gap-1.5 font-bold text-sm">
+                            <i class="ph-bold ph-arrow-left"></i> Batal & Kembali
+                        </button>
+
+                        <div class="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-xs">
+                            <h2 class="text-xl font-black text-slate-900 mb-1">Tambah Sesi Pembelajaran ke-${nextUrutan}</h2>
+                            <p class="text-xs text-slate-500 mb-5">Untuk Topik: ${course ? course.judul_kursus : ''}</p>
+
+                            <form onsubmit="handleCreateSession(event)" class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Uraian / Deskripsi Modul</label>
+                                    <input id="sess-desc" type="text" required placeholder="Contoh: Pengenalan Komponen Daya 3 Fasa" class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Tujuan Pembelajaran</label>
+                                    <textarea id="sess-tujuan" rows="2" required placeholder="1. Mampu mengidentifikasi komponen..." class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none"></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Tautan URL Video Materi</label>
+                                    <input id="sess-video" type="url" required value="https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=1000&auto=format&fit=crop&q=80" class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Bahan Diskusi Siswa</label>
+                                    <input id="sess-diskusi" type="text" required placeholder="Apa yang terjadi jika pengaman beban tidak dikalibrasi?" class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Syarat Kelulusan KKM Kuis (0 - 100)</label>
+                                    <input id="sess-kkm" type="number" min="50" max="100" value="70" required class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                </div>
+                                <div class="pt-3 flex justify-end">
+                                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-7 rounded-xl text-xs transition shadow-md">
+                                        Simpan Sesi Pembelajaran
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        window.handleCreateSession = async function(e) {
+            e.preventDefault();
+            const desc = document.getElementById('sess-desc').value.trim();
+            const tujuan = document.getElementById('sess-tujuan').value.trim();
+            const video = document.getElementById('sess-video').value.trim();
+            const diskusi = document.getElementById('sess-diskusi').value.trim();
+            const kkm = Number(document.getElementById('sess-kkm').value);
+
+            const courseId = Number(state.activeCourseId);
+            const nextUrutan = DB.getCourseSessions(courseId).length + 1;
+            const newSessionId = Date.now();
+
+            const newSession = {
+                session_id: newSessionId,
+                course_id: courseId,
+                urutan_sesi: nextUrutan,
+                deskripsi_modul: desc,
+                tujuan_belajar: tujuan,
+                link_video: video,
+                bahan_diskusi: diskusi,
+                kkm_kuis: kkm
+            };
+
+            sessionsTable.push(newSession);
+
+            // Buat 10 Soal Kuis Default agar bisa dievaluasi
+            for (let i = 1; i <= 10; i++) {
+                quizzesTable.push({
+                    quiz_id: Date.now() + i,
+                    session_id: newSessionId,
+                    pertanyaan: `Pertanyaan evaluasi ke-${i} untuk materi: ${desc}?`,
+                    pilihan_ganda: ['Opsi Jawaban A', 'Opsi Jawaban B (Benar)', 'Opsi Jawaban C', 'Opsi Jawaban D'],
+                    jawaban_benar: 1
+                });
+            }
+
+            saveLocalStorageData();
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('sessions').insert([newSession]);
+                } catch (err) {
+                    console.warn('Sync new session:', err);
+                }
+            }
+
+            showToast('Sesi pembelajaran baru berhasil dibuat!', 'success');
+            navigateTo('course_guru', { courseId: courseId });
+        };
+
+        function getTeacherCertificateSettingHTML() {
+            return `
+                <div class="flex-1 bg-slate-50 overflow-y-auto custom-scrollbar p-5 sm:p-8">
+                    <div class="max-w-2xl mx-auto space-y-5">
+                        <button onclick="navigateTo('dashboard')" class="text-indigo-600 hover:underline flex items-center gap-1.5 font-bold text-sm">
+                            <i class="ph-bold ph-arrow-left"></i> Kembali ke Dasbor
+                        </button>
+
+                        <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs">
+                            <h2 class="text-xl font-black text-slate-900 mb-1">Pengaturan Sertifikat & Tanda Tangan</h2>
+                            <p class="text-xs text-slate-500 mb-6">Informasi ini akan tertera pada sertifikat PDF yang diterbitkan untuk siswa.</p>
+
+                            <form onsubmit="handleSaveCertificateSetting(event)" class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Nama Instansi / Sekolah</label>
+                                    <input id="cert-instansi" type="text" required value="${state.user.instansi || ''}" placeholder="Contoh: SMK Negeri 1 Kota Tangerang Selatan" class="w-full border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Unggah Tanda Tangan Digital (PNG/JPG Transparan)</label>
+                                    <input id="cert-ttd-file" type="file" accept="image/*" onchange="previewTtdImage(event)" class="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                                </div>
+                                <div id="ttd-preview-box" class="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-center min-h-[90px]">
+                                    ${state.user.ttd_url ? `<img src="${state.user.ttd_url}" class="max-h-20 object-contain">` : '<span class="text-xs text-slate-400">Pratinjau tanda tangan akan muncul di sini</span>'}
+                                </div>
+                                <div class="pt-2 flex justify-end">
+                                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl text-xs transition shadow-md">
+                                        Simpan Pengaturan Sertifikat
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        window.previewTtdImage = function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    state.user.ttd_url = evt.target.result;
+                    const box = document.getElementById('ttd-preview-box');
+                    if (box) box.innerHTML = `<img src="${evt.target.result}" class="max-h-20 object-contain">`;
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+
+        window.handleSaveCertificateSetting = async function(e) {
+            e.preventDefault();
+            const instansi = document.getElementById('cert-instansi').value.trim();
+            state.user.instansi = instansi;
+
+            const uIdx = usersTable.findIndex(u => Number(u.user_id) === Number(state.user.user_id));
+            if (uIdx !== -1) {
+                usersTable[uIdx].instansi = instansi;
+                usersTable[uIdx].ttd_url = state.user.ttd_url;
+            }
+
+            saveLocalStorageData();
+            if (supabaseClient) {
+                try {
+                    await supabaseClient.from('users').update({ instansi: instansi, ttd_url: state.user.ttd_url }).eq('user_id', state.user.user_id);
+                } catch (err) {
+                    console.warn('Update cert setting Supabase:', err);
+                }
+            }
+
+            showToast('Pengaturan sertifikat berhasil disimpan!', 'success');
+            navigateTo('dashboard');
+        };
+
+        function getAdminManageUsersHTML() {
+            return `
+                <div class="flex-1 bg-slate-50 overflow-y-auto custom-scrollbar p-5 sm:p-8">
+                    <div class="max-w-5xl mx-auto space-y-6">
+                        <div class="flex justify-between items-center">
+                            <button onclick="navigateTo('dashboard')" class="text-indigo-600 hover:underline flex items-center gap-1.5 font-bold text-sm">
+                                <i class="ph-bold ph-arrow-left"></i> Kembali ke Dasbor
+                            </button>
+                            <button onclick="openBulkImportModal()" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-xl text-xs transition flex items-center gap-1.5">
+                                <i class="ph-bold ph-file-arrow-up"></i> Upload Siswa Massal
+                            </button>
+                        </div>
+
+                        <div class="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs">
+                            <h2 class="text-lg font-bold text-slate-800 mb-4">Daftar Seluruh Pengguna (${usersTable.length} Akun)</h2>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left text-xs">
+                                    <thead class="bg-slate-50 uppercase text-slate-500 font-bold border-y border-slate-200">
+                                        <tr>
+                                            <th class="py-3 px-4">Nama Lengkap</th>
+                                            <th class="py-3 px-4">Email</th>
+                                            <th class="py-3 px-4">Peran (Role)</th>
+                                            <th class="py-3 px-4">Instansi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        ${usersTable.map(u => `
+                                            <tr class="hover:bg-slate-50/70">
+                                                <td class="py-3 px-4 font-bold text-slate-800">${u.nama_lengkap}</td>
+                                                <td class="py-3 px-4 text-slate-600">${u.email}</td>
+                                                <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full font-bold ${u.role === 'Admin' ? 'bg-emerald-50 text-emerald-700' : (u.role === 'Guru' ? 'bg-indigo-50 text-indigo-700' : 'bg-blue-50 text-blue-700')}">${u.role}</span></td>
+                                                <td class="py-3 px-4 text-slate-500">${u.instansi || '-'}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
         function getStudentSessionHTML() {
             const session = sessionsTable.find(s => Number(s.session_id) === Number(state.activeSessionId));
             if (!session) return '<div class="p-8">Sesi tidak ditemukan.</div>';
