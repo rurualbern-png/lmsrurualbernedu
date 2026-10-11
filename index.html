@@ -185,11 +185,15 @@
             if (rawCourse.theme && rawCourse.theme.trim() !== '') theme = rawCourse.theme;
             if (rawCourse.token_akses && rawCourse.token_akses.trim() !== '') token = rawCourse.token_akses;
 
-            // 3. Cadangan lokal (LocalStorage) jika pernah diatur
-            const localSavedTheme = localStorage.getItem(`lms_theme_${rawCourse.course_id}`);
-            if (localSavedTheme) theme = localSavedTheme;
-            const localSavedToken = localStorage.getItem(`lms_token_${rawCourse.course_id}`);
-            if (localSavedToken) token = localSavedToken;
+            // 3. Cadangan lokal (LocalStorage) jika belum ada dari cloud/metadata
+            if (!theme || theme === 'indigo') {
+                const localSavedTheme = localStorage.getItem(`lms_theme_${rawCourse.course_id}`);
+                if (localSavedTheme) theme = localSavedTheme;
+            }
+            if (!token) {
+                const localSavedToken = localStorage.getItem(`lms_token_${rawCourse.course_id}`);
+                if (localSavedToken) token = localSavedToken;
+            }
 
             // Sinkronkan cache lokal
             localStorage.setItem(`lms_theme_${rawCourse.course_id}`, theme);
@@ -333,32 +337,34 @@
                 const completedCount = DB.getUserProgressForCourse(userId, courseId).filter(p => p.status_sesi === 'Selesai').length;
                 return Math.round((completedCount / allSessions.length) * 100);
             },
+            /*
+              DYNAMIC TOKEN CONTROLLER (Auto-Lock on Token Change):
+              Topik hanya dianggap terbuka JIKA token yang pernah di-unlock siswa
+              sama persis dengan token aktif topik saat ini. Jika guru/admin merubah token,
+              topik langsung terkunci otomatis kembali bagi siswa.
+            */
             isCourseUnlockedForStudent: (userId, courseId) => {
                 const course = coursesTable.find(c => Number(c.course_id) === Number(courseId));
                 if (!course) return false;
-                if (!course.token_akses || course.token_akses.trim() === '') return true;
+                const activeToken = (course.token_akses || '').trim().toUpperCase();
+                if (!activeToken) return true; // Terbuka jika tidak membutuhkan token
 
                 try {
-                    const raw = localStorage.getItem(`lms_unlocked_${userId}`);
-                    if (!raw) return false;
-                    const unlockedList = JSON.parse(raw);
-                    return Array.isArray(unlockedList) && unlockedList.includes(Number(courseId));
+                    // Cek token spesifik yang pernah disimpan siswa
+                    const savedUnlockToken = localStorage.getItem(`lms_unlocked_token_${userId}_${courseId}`);
+                    return Boolean(savedUnlockToken && savedUnlockToken.trim().toUpperCase() === activeToken);
                 } catch (e) {
                     return false;
                 }
             },
-            unlockCourseForStudent: (userId, courseId) => {
+            unlockCourseForStudent: (userId, courseId, tokenUsed) => {
                 try {
-                    const key = `lms_unlocked_${userId}`;
-                    let unlockedList = [];
-                    const raw = localStorage.getItem(key);
-                    if (raw) unlockedList = JSON.parse(raw);
-                    if (!unlockedList.includes(Number(courseId))) {
-                        unlockedList.push(Number(courseId));
-                        localStorage.setItem(key, JSON.stringify(unlockedList));
-                    }
+                    const course = coursesTable.find(c => Number(c.course_id) === Number(courseId));
+                    const tokenToSave = (tokenUsed || (course ? course.token_akses : '') || '').trim().toUpperCase();
+                    // Simpan token aktif yang berhasil diverifikasi oleh siswa
+                    localStorage.setItem(`lms_unlocked_token_${userId}_${courseId}`, tokenToSave);
                 } catch (e) {
-                    console.warn('Gagal simpan unlock:', e);
+                    console.warn('Gagal simpan unlock token:', e);
                 }
             }
         };
@@ -1297,6 +1303,7 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
             const course = coursesTable.find(c => Number(c.course_id) === Number(courseId));
             if (!course) return;
 
+            const oldToken = (course.token_akses || '').trim().toUpperCase();
             course.judul_kursus = document.getElementById('edit-topic-title').value.trim();
             course.deskripsi_singkat = document.getElementById('edit-topic-desc').value.trim();
             course.token_akses = document.getElementById('edit-topic-token').value.trim().toUpperCase();
@@ -1310,7 +1317,11 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
             }
 
             closeModal();
-            showToast('Topik pembelajaran berhasil diperbarui!', 'success');
+            if (oldToken !== course.token_akses) {
+                showToast(`Token diganti ke "${course.token_akses}". Topik otomatis terkunci kembali untuk seluruh siswa!`, 'warning');
+            } else {
+                showToast('Topik pembelajaran berhasil diperbarui!', 'success');
+            }
             render();
         };
 
@@ -1325,10 +1336,10 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
                             <i class="ph-bold ph-key"></i>
                         </div>
                         <h3 class="text-lg font-black text-slate-900 mb-1">Masukkan Token Izin Masuk</h3>
-                        <p class="text-xs text-slate-500 mb-4">Minta token pendaftaran untuk topik <strong>"${course.judul_kursus}"</strong> kepada Guru atau Pengampu Anda.</p>
+                        <p class="text-xs text-slate-500 mb-4">Minta token pendaftaran terbaru untuk topik <strong>"${course.judul_kursus}"</strong> kepada Guru atau Pengampu Anda.</p>
                         
                         <form onsubmit="handleVerifyCourseToken(event, ${courseId})" class="space-y-3">
-                            <input id="input-verify-token" type="text" required placeholder="Contoh: ${course.token_akses || 'EDU-1234'}" class="w-full text-center tracking-widest text-base font-mono uppercase px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:bg-white focus:border-indigo-600 focus:outline-none">
+                            <input id="input-verify-token" type="text" required placeholder="Ketik token dari guru..." class="w-full text-center tracking-widest text-base font-mono uppercase px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:bg-white focus:border-indigo-600 focus:outline-none">
                             <div class="flex gap-2 pt-2">
                                 <button type="button" onclick="closeModal()" class="flex-1 py-2.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">Batal</button>
                                 <button type="submit" class="flex-1 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md transition flex items-center justify-center gap-1.5">
@@ -1347,14 +1358,16 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
             if (!course) return;
 
             const inputVal = document.getElementById('input-verify-token').value.trim().toUpperCase();
-            if (inputVal === (course.token_akses || '').toUpperCase()) {
-                DB.unlockCourseForStudent(state.user.user_id, courseId);
+            const activeToken = (course.token_akses || '').trim().toUpperCase();
+
+            if (inputVal === activeToken && activeToken !== '') {
+                DB.unlockCourseForStudent(state.user.user_id, courseId, inputVal);
                 closeModal();
                 if (typeof confetti === 'function') confetti({ particleCount: 75, spread: 65, origin: { y: 0.6 } });
                 showToast('Token valid! Topik pembelajaran berhasil dibuka.', 'success');
                 navigateTo('course_siswa', { courseId: courseId });
             } else {
-                showToast('Token salah! Silakan periksa kembali dengan guru Anda.', 'error');
+                showToast('Token salah atau sudah diganti oleh guru! Minta token terbaru.', 'error');
             }
         };
 
@@ -1492,6 +1505,31 @@ ALTER TABLE user_progress DISABLE ROW LEVEL SECURITY;
         function getStudentCourseHTML() {
             const course = coursesTable.find(c => Number(c.course_id) === Number(state.activeCourseId));
             if (!course) return '<div class="p-8">Topik tidak ditemukan.</div>';
+
+            const isUnlocked = DB.isCourseUnlockedForStudent(state.user.user_id, course.course_id);
+            if (!isUnlocked) {
+                return `
+                    <div class="flex-1 bg-slate-50 p-6 sm:p-10 flex items-center justify-center">
+                        <div class="bg-white p-8 rounded-3xl border border-slate-200 max-w-md w-full text-center shadow-lg">
+                            <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-4">
+                                <i class="ph-bold ph-lock-key"></i>
+                            </div>
+                            <h2 class="text-xl font-black text-slate-900 mb-2">Topik Terkunci Kembali</h2>
+                            <p class="text-xs text-slate-500 mb-6 leading-relaxed">
+                                Guru atau Admin telah memperbarui token masuk untuk topik <strong>"${course.judul_kursus}"</strong>. Masukkan token terbaru untuk melanjutkan pembelajaran.
+                            </p>
+                            <div class="flex gap-3">
+                                <button onclick="navigateTo('dashboard')" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition">
+                                    Kembali ke Dasbor
+                                </button>
+                                <button onclick="promptCourseTokenModal(${course.course_id})" class="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs transition shadow-md">
+                                    Masukkan Token Baru
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
 
             const sessions = DB.getCourseSessions(course.course_id);
             const userProg = DB.getUserProgressForCourse(state.user.user_id, course.course_id);
